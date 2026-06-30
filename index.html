@@ -2386,12 +2386,13 @@ function updateColorOptions() {
         }
     } else {
         group.innerHTML = `
+            <span class="chip" onclick="selectChip('colorGroup', 'lemon-green')">青柠檬色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'lemon')">柠檬色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'gold')">金黄色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'amber')">琥珀色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'brown')">棕色</span>
         `;
-        if (!['lemon', 'gold', 'amber', 'brown'].includes(formData.color)) {
+        if (!['lemon-green', 'lemon', 'gold', 'amber', 'brown'].includes(formData.color)) {
             formData.color = 'lemon';
         }
     }
