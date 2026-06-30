@@ -2334,19 +2334,19 @@ function updateColorOptions() {
     
     if (formData.wineType === 'red' || formData.wineType === 'rose') {
         group.innerHTML = `
-            <span class="chip" onclick="selectChip('colorGroup', 'purple')">紫红色</span>
-            <span class="chip" onclick="selectChip('colorGroup', 'ruby')">宝石红</span>
-            <span class="chip" onclick="selectChip('colorGroup', 'garnet')">石榴红</span>
-            <span class="chip" onclick="selectChip('colorGroup', 'tawny')">茶色</span>
+            <span class="chip" onclick="selectChip('colorGroup', 'pink')">粉色</span>
+            <span class="chip" onclick="selectChip('colorGroup', 'pink orange')">粉橘色</span>
+            <span class="chip" onclick="selectChip('colorGroup', 'orange')">橘色</span>
+            
         `;
         if (!['purple', 'ruby', 'garnet', 'tawny'].includes(formData.color)) {
             formData.color = 'ruby';
         }
     } else if (formData.wineType === 'sparkling') {
         group.innerHTML = `
-            <span class="chip" onclick="selectChip('colorGroup', 'white')">白中白</span>
+            <span class="chip" onclick="selectChip('colorGroup', 'white')">白</span>
             <span class="chip" onclick="selectChip('colorGroup', 'rose')">桃红</span>
-            <span class="chip" onclick="selectChip('colorGroup', 'yellow')">黄中白</span>
+            <span class="chip" onclick="selectChip('colorGroup', 'red')">红</span>
         `;
         if (!['white', 'rose', 'yellow'].includes(formData.color)) {
             formData.color = 'white';
