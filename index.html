@@ -1581,8 +1581,8 @@
                         <label class="form-label">澄清度 (Clarity)</label>
                         <div class="option-chips" id="clarityGroup">
                             <span class="chip selected" onclick="selectChip('clarityGroup', 'clear')">澄清</span>
-                            <span class="chip" onclick="selectChip('clarityGroup', 'slightlyCloudy')">轻微浑浊</span>
-                            <span class="chip" onclick="selectChip('clarityGroup', 'cloudy')">浑浊</span>
+                            <span class="chip" onclick="selectChip('clarityGroup', 'slightlyhazy')">轻微浑浊</span>
+                            <span class="chip" onclick="selectChip('clarityGroup', 'hazy')">浑浊</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1596,6 +1596,7 @@
                     <div class="form-group" id="colorGroupContainer">
                         <label class="form-label">颜色 (Color)</label>
                         <div class="option-chips" id="colorGroup">
+                            <span class="chip selected" onclick="selectChip('colorGroup', 'lemon-green')">青柠檬色</span>
                             <span class="chip selected" onclick="selectChip('colorGroup', 'lemon')">柠檬色</span>
                             <span class="chip" onclick="selectChip('colorGroup', 'gold')">金黄色</span>
                             <span class="chip" onclick="selectChip('colorGroup', 'amber')">琥珀色</span>
@@ -1637,16 +1638,20 @@
                         <label class="form-label">甜度 (Sweetness)</label>
                         <div class="option-chips" id="sweetnessGroup">
                             <span class="chip selected" onclick="selectChip('sweetnessGroup', 'dry')">干型</span>
-                            <span class="chip" onclick="selectChip('sweetnessGroup', 'offDry')">半干</span>
+                            <span class="chip" onclick="selectChip('sweetnessGroup', 'offDry')">近乎干型</span>
+                            <span class="chip" onclick="selectChip('sweetnessGroup', 'mediumDry')">半干</span>
                             <span class="chip" onclick="selectChip('sweetnessGroup', 'medium')">半甜</span>
                             <span class="chip" onclick="selectChip('sweetnessGroup', 'sweet')">甜型</span>
+                            <span class="chip" onclick="selectChip('sweetnessGroup', 'luscious')">极甜型</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">酸度 (Acidity)</label>
                         <div class="option-chips" id="acidityGroup">
                             <span class="chip" onclick="selectChip('acidityGroup', 'low')">低</span>
+                            <span class="chip" onclick="selectChip('acidityGroup', 'medium-')">中-</span>
                             <span class="chip" onclick="selectChip('acidityGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('acidityGroup', 'medium+')">中+</span>
                             <span class="chip selected" onclick="selectChip('acidityGroup', 'high')">高</span>
                         </div>
                     </div>
@@ -1654,7 +1659,9 @@
                         <label class="form-label">单宁 (Tannin)</label>
                         <div class="option-chips" id="tanninLevelGroup">
                             <span class="chip" onclick="selectChip('tanninLevelGroup', 'low')">低</span>
+                            <span class="chip selected" onclick="selectChip('tanninLevelGroup', 'medium-')">中-</span>
                             <span class="chip selected" onclick="selectChip('tanninLevelGroup', 'medium')">中</span>
+                            <span class="chip selected" onclick="selectChip('tanninLevelGroup', 'medium+')">中+</span>
                             <span class="chip" onclick="selectChip('tanninLevelGroup', 'high')">高</span>
                         </div>
                         <div class="multi-chips" id="tanninNatureGroup" style="margin-top:8px">
@@ -1662,21 +1669,25 @@
                             <span class="multi-chip" onclick="toggleMultiChip('tanninNatureGroup', 'coarse')">粗糙</span>
                             <span class="multi-chip" onclick="toggleMultiChip('tanninNatureGroup', 'soft')">柔和</span>
                             <span class="multi-chip" onclick="toggleMultiChip('tanninNatureGroup', 'grippy')">扎實</span>
+                            <span class="multi-chip" onclick="toggleMultiChip('tanninNatureGroup', 'smooth')">丝滑</span>
+                            <span class="multi-chip" onclick="toggleMultiChip('tanninNatureGroup', 'chalky')">厚实</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">酒精度 (Alcohol)</label>
                         <div class="option-chips" id="alcoholGroup">
-                            <span class="chip" onclick="selectChip('alcoholGroup', 'low')">低 ( &lt;12.5% )</span>
-                            <span class="chip selected" onclick="selectChip('alcoholGroup', 'medium')">中 ( 12.5-14% )</span>
-                            <span class="chip" onclick="selectChip('alcoholGroup', 'high')">高 ( &gt;14% )</span>
+                            <span class="chip" onclick="selectChip('alcoholGroup', 'low')">低</span>
+                            <span class="chip selected" onclick="selectChip('alcoholGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('alcoholGroup', 'high')">高</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">酒体 (Body)</label>
                         <div class="option-chips" id="bodyGroup">
                             <span class="chip" onclick="selectChip('bodyGroup', 'light')">轻盈</span>
+                            <span class="chip selected" onclick="selectChip('bodyGroup', 'medium-')">中等-</span>
                             <span class="chip selected" onclick="selectChip('bodyGroup', 'medium')">中等</span>
+                            <span class="chip selected" onclick="selectChip('bodyGroup', 'medium+')">中等+</span>
                             <span class="chip" onclick="selectChip('bodyGroup', 'full')">饱满</span>
                         </div>
                     </div>
@@ -1687,9 +1698,11 @@
                     <div class="form-group">
                         <label class="form-label">余味 (Finish)</label>
                         <div class="option-chips" id="finishGroup">
-                            <span class="chip" onclick="selectChip('finishGroup', 'short')">短 (&lt;3s)</span>
-                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium')">中 (3-5s)</span>
-                            <span class="chip" onclick="selectChip('finishGroup', 'long')">长 (&gt;5s)</span>
+                            <span class="chip" onclick="selectChip('finishGroup', 'short')">短</span>
+                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium-')">中-</span>
+                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium')">中</span>
+                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium+')">中+</span>
+                            <span class="chip" onclick="selectChip('finishGroup', 'long')">长</span>
                         </div>
                     </div>
                 </div>
@@ -1704,8 +1717,8 @@
                         <label class="form-label">质量 (Quality)</label>
                         <div class="option-chips" id="qualityGroup">
                             <span class="chip" onclick="selectChip('qualityGroup', 'faulty')">缺陷 (Faulty)</span>
+                            <span class="chip" onclick="selectChip('qualityGroup', 'poor')">差</span>
                             <span class="chip selected" onclick="selectChip('qualityGroup', 'acceptable')">可接受</span>
-                            <span class="chip" onclick="selectChip('qualityGroup', 'average')">一般</span>
                             <span class="chip" onclick="selectChip('qualityGroup', 'good')">良好</span>
                             <span class="chip" onclick="selectChip('qualityGroup', 'veryGood')">优秀</span>
                             <span class="chip" onclick="selectChip('qualityGroup', 'outstanding')">杰出</span>
