@@ -2160,12 +2160,25 @@ function init() {
 
 // 存储
 function saveToStorage() {
-    localStorage.setItem('wineNotes', JSON.stringify({
-        notes,
-        formData,
-        photoData,
-        voiceResults
+    const tryWrite = () => localStorage.setItem('wineNotes', JSON.stringify({
+        notes, formData, photoData, voiceResults
     }));
+    try {
+        tryWrite();
+    } catch (err) {
+        const isQuota = err && (err.name === 'QuotaExceededError' || err.code === 22 || /quota/i.test(err.message || ''));
+        if (!isQuota) throw err;
+        // 逐步剔除最早笔记的大字段，重试写入
+        for (let i = 0; i < notes.length; i++) {
+            if (notes[i] && notes[i].photoData) {
+                delete notes[i].photoData;
+                try { tryWrite(); if (typeof showToast === 'function') showToast('存储已满，已自动清理早期笔记照片'); return; }
+                catch (e2) { /* 继续清理下一条 */ }
+            }
+        }
+        if (typeof showToast === 'function') showToast('本地存储已满，请到我的笔记删除部分历史记录');
+        throw err;
+    }
 }
 
 function loadFromStorage() {
@@ -2575,11 +2588,33 @@ function handlePhotoUpload(event) {
     
     const reader = new FileReader();
     reader.onload = e => {
-        photoData = e.target.result;
-        const area = document.getElementById('photoUploadArea');
-        area.classList.add('has-photo');
-        area.innerHTML = `<img src="${photoData}" alt="wine photo">`;
-        saveToStorage();
+        // 压缩再存：长边≤1024px，JPEG 0.8，避免 localStorage 爆配额
+        const img = new Image();
+        img.onload = () => {
+            const MAX = 1024;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+                if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+                else { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            try { photoData = canvas.toDataURL('image/jpeg', 0.8); }
+            catch (err) { photoData = e.target.result; }
+            const area = document.getElementById('photoUploadArea');
+            area.classList.add('has-photo');
+            area.innerHTML = `<img src="${photoData}" alt="wine photo">`;
+            saveToStorage();
+        };
+        img.onerror = () => {
+            photoData = e.target.result;
+            const area = document.getElementById('photoUploadArea');
+            area.classList.add('has-photo');
+            area.innerHTML = `<img src="${photoData}" alt="wine photo">`;
+            saveToStorage();
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }// ==================== 笔记列表 ====================
@@ -3058,7 +3093,7 @@ async function doGenerate(basicNote, sectionId, contentId) {
             voiceResults: { ...voiceResults },
             resultText: note
         });
-        saveToStorage();
+        try { saveToStorage(); } catch (saveErr) { console.warn('saveToStorage failed:', saveErr); }
         renderNotesList();
         
         showToast('已生成');
