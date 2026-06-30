@@ -1647,7 +1647,9 @@
                         <label class="form-label">酸度 (Acidity)</label>
                         <div class="option-chips" id="acidityGroup">
                             <span class="chip" onclick="selectChip('acidityGroup', 'low')">低</span>
+                            <span class="chip" onclick="selectChip('acidityGroup', 'medium-')">中-</span>
                             <span class="chip" onclick="selectChip('acidityGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('acidityGroup', 'medium+')">中+</span>
                             <span class="chip selected" onclick="selectChip('acidityGroup', 'high')">高</span>
                         </div>
                     </div>
@@ -1655,7 +1657,9 @@
                         <label class="form-label">单宁 (Tannin)</label>
                         <div class="option-chips" id="tanninLevelGroup">
                             <span class="chip" onclick="selectChip('tanninLevelGroup', 'low')">低</span>
+                            <span class="chip" onclick="selectChip('tanninLevelGroup', 'medium-')">中-</span>
                             <span class="chip selected" onclick="selectChip('tanninLevelGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('tanninLevelGroup', 'medium+')">中+</span>
                             <span class="chip" onclick="selectChip('tanninLevelGroup', 'high')">高</span>
                         </div>
                         <div class="multi-chips" id="tanninNatureGroup" style="margin-top:8px">
@@ -1677,7 +1681,9 @@
                         <label class="form-label">酒体 (Body)</label>
                         <div class="option-chips" id="bodyGroup">
                             <span class="chip" onclick="selectChip('bodyGroup', 'light')">轻盈</span>
+                            <span class="chip selected" onclick="selectChip('bodyGroup', 'medium-')">中等-</span>
                             <span class="chip selected" onclick="selectChip('bodyGroup', 'medium')">中等</span>
+                            <span class="chip selected" onclick="selectChip('bodyGroup', 'medium+')">中等+</span>
                             <span class="chip" onclick="selectChip('bodyGroup', 'full')">饱满</span>
                         </div>
                     </div>
@@ -1688,9 +1694,11 @@
                     <div class="form-group">
                         <label class="form-label">余味 (Finish)</label>
                         <div class="option-chips" id="finishGroup">
-                            <span class="chip" onclick="selectChip('finishGroup', 'short')">短 (&lt;3s)</span>
-                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium')">中 (3-5s)</span>
-                            <span class="chip" onclick="selectChip('finishGroup', 'long')">长 (&gt;5s)</span>
+                            <span class="chip" onclick="selectChip('finishGroup', 'short')">短</span>
+                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium-')">中-</span>
+                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium')">中</span>
+                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium+')">中+</span>
+                            <span class="chip" onclick="selectChip('finishGroup', 'long')">长</span>
                         </div>
                     </div>
                 </div>
