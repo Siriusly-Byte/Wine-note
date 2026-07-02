@@ -3158,22 +3158,50 @@ function flattenAromaData(noseOrPalate) {
     return parts.join('\n');
 }
 
+// 表单 value（英文）→ 中文标签映射，仅用于喂给 LLM，避免生成的品酒词出现中英混杂
+const LABEL_MAP = {
+    clarity: { clear: '澄清', slightlyhazy: '轻微浑浊', hazy: '浑浊' },
+    intensity: { pale: '淡', medium: '中等', deep: '深' },
+    color: {
+        'lemon-green': '青柠檬色', lemon: '柠檬色', gold: '金黄色', amber: '琥珀色', brown: '棕色',
+        purple: '紫红色', ruby: '宝石红', garnet: '石榴红', tawny: '茶色',
+        pink: '粉色', 'pink-orange': '粉橘色', orange: '橘色',
+        white: '白色', rose: '桃红色', red: '红色'
+    },
+    condition: { clean: '干净', faulty: '有缺陷' },
+    sweetness: { dry: '干型', offDry: '近乎干型', mediumDry: '半干', medium: '半甜', sweet: '甜型', luscious: '极甜型' },
+    acidity: { low: '低', 'medium-': '中等偏低', medium: '中等', 'medium+': '中等偏高', high: '高' },
+    tanninLevel: { low: '低', 'medium-': '中等偏低', medium: '中等', 'medium+': '中等偏高', high: '高' },
+    tanninNature: { fine: '细腻', coarse: '粗糙', soft: '柔和', grippy: '扎实', smooth: '丝滑', chalky: '厚实' },
+    alcohol: { low: '低', medium: '中等', high: '高' },
+    body: { light: '轻盈', 'medium-': '中等偏轻', medium: '中等', 'medium+': '中等偏重', full: '饱满' },
+    finish: { short: '短', 'medium-': '中等偏短', medium: '中等', 'medium+': '中等偏长', long: '悠长' },
+    quality: { faulty: '有缺陷', poor: '差', acceptable: '可接受', good: '良好', veryGood: '优秀', outstanding: '杰出' },
+    ageing: { drinkNow: '可现在饮用', comingPeak: '即将进入适饮期', atPeak: '正值巅峰适饮期', pastPeak: '已过巅峰' }
+};
+function L(field, value) {
+    if (value == null || value === '') return value;
+    const map = LABEL_MAP[field] || {};
+    if (Array.isArray(value)) return value.map(v => map[v] || v);
+    return map[value] || value;
+}
+
 function buildBasicNote() {
     const parts = [];
     
     if (formData.wineName) parts.push('【基本信息】' + formData.wineName);
     
     const appParts = [];
-    if (formData.clarity) appParts.push('澄清度: ' + formData.clarity);
-    if (formData.intensity) appParts.push('颜色深浅: ' + formData.intensity);
-    if (formData.color) appParts.push('颜色: ' + formData.color);
+    if (formData.clarity) appParts.push('澄清度: ' + L('clarity', formData.clarity));
+    if (formData.intensity) appParts.push('颜色深浅: ' + L('intensity', formData.intensity));
+    if (formData.color) appParts.push('颜色: ' + L('color', formData.color));
     if (formData.appearanceObservations && formData.appearanceObservations.length) appParts.push('其他: ' + formData.appearanceObservations.join(', '));
     if (formData.appearanceFaulty) appParts.push('⚠️受损');
     if (formData.appearanceOther) appParts.push(formData.appearanceOther);
     if (appParts.length) parts.push('【外观】' + appParts.join('；'));
     
     const noseParts = [];
-    if (formData.condition) noseParts.push('状态: ' + formData.condition);
+    if (formData.condition) noseParts.push('状态: ' + L('condition', formData.condition));
     if (formData.noseFaulty) noseParts.push('⚠️受损');
     if (formData.aromaIntensity) noseParts.push('浓郁度: ' + formData.aromaIntensity);
     const noseAroma = flattenAromaData('nose');
@@ -3181,24 +3209,24 @@ function buildBasicNote() {
     if (noseParts.length) parts.push('【嗅觉】' + noseParts.join('；'));
     
     const palateParts = [];
-    if (formData.sweetness) palateParts.push('甜度: ' + formData.sweetness);
-    if (formData.acidity) palateParts.push('酸度: ' + formData.acidity);
-    if (formData.tanninLevel) palateParts.push('单宁: ' + formData.tanninLevel);
-    if (formData.tanninNature && formData.tanninNature.length) palateParts.push('质感: ' + formData.tanninNature.join(', '));
-    if (formData.alcohol) palateParts.push('酒精度: ' + formData.alcohol);
-    if (formData.body) palateParts.push('酒体: ' + formData.body);
+    if (formData.sweetness) palateParts.push('甜度: ' + L('sweetness', formData.sweetness));
+    if (formData.acidity) palateParts.push('酸度: ' + L('acidity', formData.acidity));
+    if (formData.tanninLevel) palateParts.push('单宁: ' + L('tanninLevel', formData.tanninLevel));
+    if (formData.tanninNature && formData.tanninNature.length) palateParts.push('单宁质感: ' + L('tanninNature', formData.tanninNature).join(', '));
+    if (formData.alcohol) palateParts.push('酒精度: ' + L('alcohol', formData.alcohol));
+    if (formData.body) palateParts.push('酒体: ' + L('body', formData.body));
     if (formData.flavorIntensity) palateParts.push('风味浓郁度: ' + formData.flavorIntensity);
     const palateFlavor = flattenAromaData('palate');
     if (palateFlavor) palateParts.push(palateFlavor);
     if (formData.palateOtherTexture && formData.palateOtherTexture.length) palateParts.push('质感: ' + formData.palateOtherTexture.join(', '));
     if (formData.palatePetillance) palateParts.push('微气泡');
-    if (formData.finish) palateParts.push('余味: ' + formData.finish);
+    if (formData.finish) palateParts.push('余味: ' + L('finish', formData.finish));
     if (palateParts.length) parts.push('【口感】' + palateParts.join('；'));
     
     const concParts = [];
-    if (formData.quality) concParts.push('质量: ' + formData.quality);
+    if (formData.quality) concParts.push('质量: ' + L('quality', formData.quality));
     if (formData.qualityReason) concParts.push('理由: ' + formData.qualityReason);
-    if (formData.ageing) concParts.push('陈年: ' + formData.ageing);
+    if (formData.ageing) concParts.push('陈年潜力: ' + L('ageing', formData.ageing));
     if (formData.ageingReason) concParts.push('理由: ' + formData.ageingReason);
     if (formData.overallNotes) concParts.push('总评: ' + formData.overallNotes);
     if (concParts.length) parts.push('【结论】' + concParts.join('；'));
@@ -3245,7 +3273,7 @@ async function callAPI(basicNote) {
     
     const messages = [
         { role: 'system', content: getStylePrompt() },
-        { role: 'user', content: `根据品鉴数据生成品酒词：\n${basicNote}` }
+        { role: 'user', content: `请根据以下WSET品鉴要点，写一段连贯、专业、有文学感的中文品酒词。严格遵守系统提示的写作规则：全程中文、段落叙述、外观→嗅觉→口感→结论顺序，不得罗列键值对或英文缩写。\n\n【品鉴要点】\n${basicNote}` }
     ];
     
     let body;
@@ -3286,14 +3314,25 @@ async function callAPI(basicNote) {
 }
 
 function getStylePrompt() {
-    const prompts = {
-        professional: '你是WSET四级品酒师，用专业、准确、客观的语言描述，遵循SAT标准。',
-        romantic: '你是热爱葡萄酒的诗人，用优美、感性、富有画面感的语言描述品酒体验。',
-        minimal: '用简洁精炼的语言总结品酒感受，一句话概括核心特点。',
-        parker: '模仿罗伯特·帕克的风格，使用丰富、热情、权威的评价方式。'
+    const styleGuides = {
+        professional: '风格定位：WSET四级/SAT系统专业品酒师。用词准确、克制、客观，遵循SAT术语体系，避免夸饰。',
+        romantic: '风格定位：诗意抒情派。用优美、富画面感的文学化语言，善用比喻和通感，但保留品鉴要点。',
+        minimal: '风格定位：极简凝练。用一小段简洁文字点出核心特征与整体感受即可。',
+        parker: '风格定位：模仿罗伯特·帕克，权威、热情、丰富，善用生动比喻和评价性词汇。'
     };
-    let prompt = prompts[settings.style] || prompts.professional;
-    if (settings.customPrompt) prompt += '\n\n' + settings.customPrompt;
+    const styleLine = styleGuides[settings.style] || styleGuides.professional;
+    
+    let prompt = `你是一位精通WSET SAT系统的中文品酒师，擅长把结构化品鉴数据转写为一段连贯、专业、有文学感的中文品酒词。
+
+【硬性要求】
+1. 全程使用中文，禁止夹杂任何英文单词或缩写；例如输入若出现 dry / off-dry / medium+ / fine 等，必须译为"干型 / 近乎干型 / 中等偏高 / 细腻"等中文表述。
+2. 输出必须是若干句连贯的段落，禁止使用"甜度：干型"这类键值对罗列、项目符号或分类标题。
+3. 按"外观 → 嗅觉 → 口感 → 结论/评价"的顺序自然过渡，善用承上启下的连接词，例如"这款酒在杯中呈现…"、"轻嗅之下"、"入口后"、"余味中"、"综合而言"等。
+4. 术语准确并具画面感：颜色/浓郁度/酸度/单宁/酒体/余味等使用WSET中文规范用词；提到的香气与风味要具体展开（如"熟透的柠檬皮、白桃与淡淡的杏仁气息"）。
+5. 篇幅控制在200~350字，行文一气呵成，不出现Markdown符号（不要用* # - 等）。
+
+${styleLine}`;
+    if (settings.customPrompt) prompt += '\n\n【补充要求】\n' + settings.customPrompt;
     return prompt;
 }
 
