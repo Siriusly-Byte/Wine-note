@@ -2788,19 +2788,26 @@ function startBrowserSpeech() {
 let xfyunResultText = '';
 
 function startXfyunSpeech() {
-    const cfg = settings.xfyun;
-    if (!cfg.appId || !cfg.apiKey) {
+    const cfg = settings.xfyun || {};
+    // 严格清理：去掉零宽字符/BOM/全角空格/换行/任何空白，避免粘贴时混入不可见字符
+    const sanitize = s => (s || '').replace(/[\s\u200B-\u200D\uFEFF\u3000]/g, '');
+    const appId = sanitize(cfg.appId);
+    const apiKey = sanitize(cfg.apiKey);
+    if (!appId || !apiKey) {
         document.getElementById('voiceModalStatus').textContent = '请先在设置中填写讯飞 AppID 和 API Key';
         return;
     }
+    console.log('[xfyun] appId len=' + appId.length + ' apiKey len=' + apiKey.length);
     
     xfyunResultText = voiceResults[currentVoiceField] || '';
     
     // 讯飞 RTASR 签名： base64( hmac-sha1( md5(appId+ts), apiKey ) )
     const ts = Math.floor(Date.now() / 1000);
-    const md5Str = CryptoJS.MD5(cfg.appId + ts).toString();
-    const signa = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA1(md5Str, cfg.apiKey));
-    const url = `wss://rtasr.xfyun.cn/v1/ws?appid=${encodeURIComponent(cfg.appId)}&ts=${ts}&signa=${encodeURIComponent(signa)}`;
+    const baseString = appId + ts;
+    const md5Str = CryptoJS.MD5(baseString).toString();
+    const signa = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA1(md5Str, apiKey));
+    console.log('[xfyun] ts=' + ts + ' md5=' + md5Str + ' signa=' + signa);
+    const url = `wss://rtasr.xfyun.cn/v1/ws?appid=${appId}&ts=${ts}&signa=${encodeURIComponent(signa)}`;
     
     try {
         xfyunWs = new WebSocket(url);
@@ -2848,12 +2855,18 @@ function startXfyunSpeech() {
         }
     };
     
-    xfyunWs.onerror = () => {
-        document.getElementById('voiceModalStatus').textContent = '讯飞连接失败';
+    xfyunWs.onerror = (e) => {
+        console.error('[xfyun] ws error', e);
+        document.getElementById('voiceModalStatus').textContent = '讯飞连接失败（检查网络或控制台日志）';
     };
     
-    xfyunWs.onclose = () => {
+    xfyunWs.onclose = (e) => {
+        console.log('[xfyun] ws close code=' + e.code + ' reason=' + e.reason + ' wasClean=' + e.wasClean);
         stopAudioCapture();
+        const statusEl = document.getElementById('voiceModalStatus');
+        if (statusEl && (statusEl.textContent === '正在握手...' || statusEl.textContent.startsWith('讯飞连接失败'))) {
+            statusEl.textContent = '讯飞已断开 code=' + e.code + (e.reason ? ' ' + e.reason : '');
+        }
     };
 }
 
