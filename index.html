@@ -3186,6 +3186,76 @@ function L(field, value) {
     return map[value] || value;
 }
 
+// ==================== 香气数据中英映射 ====================
+const AROMA_CLUSTER_MAP = {
+    // Primary clusters
+    'Floral': '花香', 'Green fruit': '绿色水果', 'Citrus fruit': '柑橘类水果',
+    'Stone fruit': '核果', 'Tropical fruit': '热带水果', 'Herbaceous': '草本',
+    'Herbal': '草药', 'Spice': '香料', 'Fruit ripeness': '果实成熟度',
+    'Other': '其他', 'Red fruit': '红色水果', 'Black fruit': '黑色水果',
+    'Yeast': '酵母', 'Bread': '面包', 'Nut': '坚果', 'Oxidative': '氧化',
+    // Secondary clusters
+    'Yeast (lees, autolysis, flor)': '酵母（酒泥/自溶/酒花）',
+    'Malolactic conversion': '苹果酸乳酸发酵', 'Oak': '橡木',
+    // Tertiary clusters
+    'Dried fruit': '干果', 'Orange marmalade': '橘子酱', 'Petrol': '汽油',
+    'Nut': '坚果', 'Honey': '蜂蜜', 'Caramel': '焦糖', 'Cooked fruit': '熟制水果',
+    'Leather': '皮革', 'Earth': '泥土', 'Mushroom': '蘑菇', 'Meat': '肉类',
+    'Tobacco': '烟草', 'Wet leaves': '湿叶', 'Forest floor': '森林地表',
+    'Bread': '面包', 'Rose petal': '玫瑰花瓣'
+};
+
+const AROMA_VALUE_MAP = {
+    // Floral
+    'blossom': '花蕊', 'elderflower': '接骨木花', 'honeysuckle': '金银花',
+    'jasmine': '茉莉', 'rose': '玫瑰', 'violet': '紫罗兰',
+    // Green fruit
+    'apple': '苹果', 'pear': '梨', 'gooseberry': '醋栗', 'grape': '葡萄',
+    // Citrus fruit
+    'grapefruit': '葡萄柚', 'lemon': '柠檬', 'lime': '青柠', 'orange': '橙子',
+    // Stone fruit
+    'peach': '桃子', 'apricot': '杏', 'nectarine': '油桃',
+    // Tropical fruit
+    'banana': '香蕉', 'lychee': '荔枝', 'mango': '芒果', 'melon': '甜瓜',
+    'passion fruit': '百香果', 'pineapple': '菠萝',
+    // Red fruit
+    'red currant': '红醋栗', 'cranberry': '蔓越莓', 'raspberry': '树莓',
+    'strawberry': '草莓', 'red cherry': '红樱桃', 'red plum': '红李子',
+    // Black fruit
+    'blackcurrant': '黑醋栗', 'blackberry': '黑莓', 'blueberry': '蓝莓',
+    'black cherry': '黑樱桃', 'black plum': '黑李子',
+    // Herbaceous
+    'green bell pepper': '青椒', 'grass': '青草', 'tomato leaf': '番茄叶', 'asparagus': '芦笋',
+    // Herbal
+    'eucalyptus': '桉树', 'mint': '薄荷', 'fennel': '茴香', 'dill': '莳萝',
+    'dried herbs (thyme, oregano)': '干草药（百里香、牛至）',
+    // Spice
+    'black/white pepper': '黑/白胡椒', 'liquorice': '甘草', 'cinnamon': '肉桂',
+    // Fruit ripeness
+    'unripe fruit': '未成熟水果', 'ripe fruit': '成熟水果',
+    'dried fruit': '干果', 'cooked fruit': '熟制水果',
+    // Other primary
+    'simple': '简单', 'wet stones': '湿石头', 'candy': '糖果',
+    // Secondary - Yeast
+    'biscuit/graham cracker': '饼干/全麦饼干', 'bread': '面包',
+    'toasted bread': '烤面包', 'pastry': '糕点', 'brioche': '布里欧修',
+    'bread dough': '面团', 'cheese': '芝士', 'yogurt': '酸奶', 'acetaldehyde': '乙醛',
+    // Secondary - MLF
+    'butter': '黄油', 'cream': '奶油',
+    // Secondary - Oak
+    'vanilla': '香草', 'cloves': '丁香', 'coconut': '椰子', 'cedar': '雪松',
+    'charred wood': '炭化木材', 'smoke': '烟熏', 'chocolate': '巧克力', 'coffee': '咖啡',
+    // Tertiary
+    'dried apricot': '杏干', 'raisin': '葡萄干', 'prune': '西梅干', 'fig': '无花果干',
+    'orange marmalade': '橘子酱', 'petrol (gasoline)': '汽油味',
+    'ginger': '生姜', 'nutmeg': '肉豆蔻', 'almond': '杏仁', 'hazelnut': '榛子',
+    'walnut': '核桃', 'honey': '蜂蜜', 'caramel': '焦糖',
+    'cooked plum': '熟李子', 'cooked cherry': '熟樱桃', 'leather': '皮革',
+    'earth': '泥土', 'mushroom': '蘑菇', 'meat': '肉类', 'tobacco': '烟草',
+    'wet leaves': '湿叶', 'forest floor': '森林地表', 'rose petal': '玫瑰花瓣'
+};
+
+
 function buildBasicNote() {
     const parts = [];
     
