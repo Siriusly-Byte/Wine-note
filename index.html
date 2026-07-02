@@ -2785,6 +2785,7 @@ function startBrowserSpeech() {
     }
 }
 
+let xfyunWs = null;
 let xfyunResultText = '';
 
 function startXfyunSpeech() {
@@ -2828,7 +2829,12 @@ function startXfyunSpeech() {
             document.getElementById('voiceModalStatus').textContent = '请开始说话...';
             startAudioCapture(pcmData => {
                 if (xfyunWs && xfyunWs.readyState === WebSocket.OPEN) {
-                    xfyunWs.send(pcmData.buffer);
+                    // 讯飞 RTASR 官方推荐每包 1280 字节（40ms @ 16kHz PCM16），整块 8192 会让服务端合并等待，拖慢中间结果
+                    const bytes = new Uint8Array(pcmData.buffer);
+                    const CHUNK = 1280;
+                    for (let i = 0; i < bytes.length; i += CHUNK) {
+                        xfyunWs.send(bytes.slice(i, i + CHUNK));
+                    }
                 }
             });
         } else if (data.action === 'result' && data.data) {
