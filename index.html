@@ -2140,6 +2140,37 @@
                     </div>
                 </div>
                 
+                <div class="settings-section">
+                    <div class="settings-title">☁️ 云同步 (GitHub Gist)</div>
+                    <div class="settings-row">
+                        <label class="settings-label">GitHub Token</label>
+                        <input type="password" class="settings-input" id="gistToken" placeholder="ghp_... 需要 gist 权限">
+                    </div>
+                    <div class="settings-row">
+                        <label class="settings-label">Gist ID</label>
+                        <input type="text" class="settings-input" id="gistId" placeholder="留空首次同步会自动创建">
+                    </div>
+                    <div class="settings-row" style="flex-direction:row;align-items:center;gap:8px;">
+                        <input type="checkbox" id="gistAutoSync" checked style="width:auto;margin:0;">
+                        <label for="gistAutoSync" style="flex:1;font-size:13px;color:var(--text-dark);cursor:pointer;">自动同步（新建/删除笔记后 2 秒自动推送）</label>
+                    </div>
+                    <div class="settings-row">
+                        <div id="gistSyncStatus" style="font-size:12px;color:#888;padding:4px 0;">未配置</div>
+                    </div>
+                    <div class="settings-row" style="flex-direction:row;gap:8px;">
+                        <button type="button" class="save-settings-btn" style="flex:1;margin:0;background:var(--wine-red);" onclick="syncNow(false)">☁️ 立即同步</button>
+                    </div>
+                    <div class="settings-row">
+                        <div style="font-size:11px;color:#999;line-height:1.6;padding:4px 0;">
+                            📖 使用方法：<br>
+                            1. 到 <b>github.com/settings/tokens</b> 生成 Classic Token（勾选 <b>gist</b> 权限）<br>
+                            2. 复制 Token 粘贴到上方，Gist ID 留空<br>
+                            3. 保存设置 → 点"立即同步" → 会自动创建一个私密 Gist<br>
+                            4. 在其他设备打开本页，填入相同 Token 和 Gist ID，即可同步
+                        </div>
+                    </div>
+                </div>
+                
                 <button class="save-settings-btn" onclick="saveSettings()">保存设置</button>
             </div>
         </div>
@@ -2269,7 +2300,8 @@ let settings = {
     speechProvider: 'browser',
     xfyun: { appId: '', apiSecret: '', apiKey: '' },
     aliyun: { accessKeyId: '', accessKeySecret: '', appKey: '' },
-    custom: { wsUrl: '', token: '' }
+    custom: { wsUrl: '', token: '' },
+    gistSync: { token: '', gistId: '', autoSync: true, lastSyncAt: 0 }
 };
 
 let photoData = null;
@@ -2341,6 +2373,14 @@ function init() {
     loadSettings();
     onApiProviderChange();
     setupSpeechRecognition();
+    // 页面加载时，若已配置 Gist 同步，自动 pull 一次并 merge
+    setTimeout(() => {
+        try {
+            const cfg = settings.gistSync || {};
+            if (cfg.token && cfg.gistId) syncNow(true);
+            updateSyncStatus();
+        } catch (e) { console.warn('[init] auto-sync skipped:', e); }
+    }, 500);
 }
 
 // 存储
@@ -2368,6 +2408,177 @@ function saveToStorage() {
     }
 }
 
+// ==================== 云同步 (GitHub Gist) ====================
+function ensureNoteMeta(note) {
+    if (!note) return note;
+    if (!note.id) note.id = 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+    if (!note.updatedAt) note.updatedAt = Date.now();
+    return note;
+}
+
+function mergeNotesArrays(local, cloud) {
+    const map = new Map();
+    const put = (n) => {
+        if (!n || !n.id) return;
+        const exist = map.get(n.id);
+        if (!exist || (n.updatedAt || 0) >= (exist.updatedAt || 0)) {
+            map.set(n.id, n);
+        }
+    };
+    (cloud || []).forEach(put);
+    (local || []).forEach(put);
+    return Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+async function gistFetch(url, opts) {
+    const cfg = settings.gistSync || {};
+    if (!cfg.token) throw new Error('未配置 GitHub Token');
+    opts = opts || {};
+    opts.headers = Object.assign({
+        'Authorization': 'token ' + cfg.token,
+        'Accept': 'application/vnd.github+json'
+    }, opts.headers || {});
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+        let msg = 'HTTP ' + res.status;
+        try {
+            const j = await res.json();
+            if (j && j.message) msg += ' - ' + j.message;
+        } catch (_) {}
+        throw new Error(msg);
+    }
+    return res;
+}
+
+async function pullFromGist() {
+    const cfg = settings.gistSync || {};
+    if (!cfg.token || !cfg.gistId) return null;
+    const res = await gistFetch('https://api.github.com/gists/' + cfg.gistId);
+    const data = await res.json();
+    const file = data.files && data.files['wine-notes.json'];
+    if (!file) return null;
+    let content = file.content;
+    if (file.truncated && file.raw_url) {
+        const r2 = await fetch(file.raw_url);
+        if (r2.ok) content = await r2.text();
+    }
+    try {
+        const parsed = JSON.parse(content || '{}');
+        return Array.isArray(parsed.notes) ? parsed.notes : [];
+    } catch (e) {
+        console.warn('[gist] parse error', e);
+        return [];
+    }
+}
+
+async function pushToGist() {
+    const cfg = settings.gistSync || {};
+    if (!cfg.token) throw new Error('未配置 GitHub Token');
+    const payload = {
+        description: 'Wine Tasting Notes Sync',
+        files: {
+            'wine-notes.json': {
+                content: JSON.stringify({ notes, updatedAt: Date.now() }, null, 2)
+            }
+        }
+    };
+    let res;
+    if (cfg.gistId) {
+        res = await gistFetch('https://api.github.com/gists/' + cfg.gistId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    } else {
+        payload.public = false;
+        res = await gistFetch('https://api.github.com/gists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        cfg.gistId = data.id;
+        settings.gistSync = cfg;
+        const gi = document.getElementById('gistId');
+        if (gi) gi.value = data.id;
+    }
+    cfg.lastSyncAt = Date.now();
+    settings.gistSync = cfg;
+    localStorage.setItem('wineSettings', JSON.stringify(settings));
+    return true;
+}
+
+let __syncInFlight = false;
+async function syncNow(silent) {
+    const cfg = settings.gistSync || {};
+    if (!cfg.token) {
+        if (!silent) showToast('请先填入 GitHub Token 并保存设置');
+        return;
+    }
+    if (__syncInFlight) {
+        if (!silent) showToast('正在同步中...');
+        return;
+    }
+    __syncInFlight = true;
+    updateSyncStatus('syncing');
+    try {
+        notes.forEach(ensureNoteMeta);
+        if (cfg.gistId) {
+            const cloudNotes = await pullFromGist();
+            if (cloudNotes && cloudNotes.length) {
+                cloudNotes.forEach(ensureNoteMeta);
+                notes = mergeNotesArrays(notes, cloudNotes);
+            }
+        }
+        await pushToGist();
+        saveToStorage();
+        renderNotesList();
+        updateSyncStatus('ok');
+        if (!silent) showToast('☁️ 已同步');
+    } catch (e) {
+        console.error('[sync]', e);
+        updateSyncStatus('error', e.message);
+        if (!silent) showToast('同步失败: ' + e.message);
+    } finally {
+        __syncInFlight = false;
+    }
+}
+
+let __syncTimer = null;
+function scheduleAutoSync() {
+    const cfg = settings.gistSync || {};
+    if (!cfg.token || !cfg.autoSync) return;
+    clearTimeout(__syncTimer);
+    __syncTimer = setTimeout(() => syncNow(true), 2000);
+}
+
+function updateSyncStatus(state, msg) {
+    const el = document.getElementById('gistSyncStatus');
+    if (!el) return;
+    const cfg = settings.gistSync || {};
+    if (state === 'syncing') {
+        el.textContent = '⏳ 同步中...';
+        el.style.color = '#888';
+        return;
+    }
+    if (state === 'error') {
+        el.textContent = '⚠️ ' + (msg || '同步失败');
+        el.style.color = '#c33';
+        return;
+    }
+    if (!cfg.token) {
+        el.textContent = '未配置';
+        el.style.color = '#888';
+    } else if (cfg.lastSyncAt) {
+        const t = new Date(cfg.lastSyncAt).toLocaleString('zh-CN');
+        el.textContent = '✅ 上次同步: ' + t;
+        el.style.color = '#4a7';
+    } else {
+        el.textContent = '已配置 Token，尚未同步';
+        el.style.color = '#888';
+    }
+}
+
 function loadFromStorage() {
     const data = localStorage.getItem('wineNotes');
     if (data) {
@@ -2377,6 +2588,8 @@ function loadFromStorage() {
         if (parsed.photoData) photoData = parsed.photoData;
         // 不再从 localStorage 恢复 voiceResults：每次刷新语音三列都是空白起点
     }
+    // 为旧笔记补齐 id/updatedAt/deleted，供云端同步使用
+    notes.forEach(ensureNoteMeta);
 }
 
 function loadSettings() {
@@ -2419,6 +2632,14 @@ function loadSettings() {
             document.getElementById('customWsUrl').value = settings.custom.wsUrl || '';
             document.getElementById('customToken').value = settings.custom.token || '';
         }
+        if (!settings.gistSync) settings.gistSync = { token: '', gistId: '', autoSync: true, lastSyncAt: 0 };
+        const gt = document.getElementById('gistToken');
+        const gi = document.getElementById('gistId');
+        const ga = document.getElementById('gistAutoSync');
+        if (gt) gt.value = settings.gistSync.token || '';
+        if (gi) gi.value = settings.gistSync.gistId || '';
+        if (ga) ga.checked = settings.gistSync.autoSync !== false;
+        updateSyncStatus();
     }
 }
 
@@ -2836,14 +3057,18 @@ function renderNotesList() {
     const list = document.getElementById('notesList');
     const empty = document.getElementById('notesEmpty');
     
-    if (!notes || notes.length === 0) {
+    // 过滤软删除
+    const visible = (notes || []).filter(n => !n.deleted);
+    if (visible.length === 0) {
         list.innerHTML = '';
         empty.style.display = 'flex';
         return;
     }
     
     empty.style.display = 'none';
-    list.innerHTML = notes.map((note, i) => `
+    list.innerHTML = visible.map((note) => {
+        const i = notes.indexOf(note);
+        return `
         <div class="note-item" onclick="openNoteDetail(${i})">
             <div class="note-item-header">
                 <div class="note-item-photo">
@@ -2859,7 +3084,8 @@ function renderNotesList() {
                 <button class="note-action-btn delete" onclick="event.stopPropagation(); deleteNote(${i})">删除</button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function buildNoteDetailBilingual(zh, en) {
@@ -2934,9 +3160,14 @@ function exportNoteDetail() {
 
 function deleteNote(index) {
     if (confirm('删除这条笔记？')) {
-        notes.splice(index, 1);
+        // 软删除：保留记录但标记 deleted，同步到云端去使其他设备也删除
+        if (notes[index]) {
+            notes[index].deleted = true;
+            notes[index].updatedAt = Date.now();
+        }
         saveToStorage();
         renderNotesList();
+        scheduleAutoSync();
         showToast('已删除');
     }
 }
@@ -3492,7 +3723,20 @@ function saveSettings() {
         token: document.getElementById('customToken').value
     };
     
+    // Gist 同步配置
+    const prevGist = settings.gistSync || {};
+    const gt = document.getElementById('gistToken');
+    const gi = document.getElementById('gistId');
+    const ga = document.getElementById('gistAutoSync');
+    settings.gistSync = {
+        token: gt ? gt.value.trim() : (prevGist.token || ''),
+        gistId: gi ? gi.value.trim() : (prevGist.gistId || ''),
+        autoSync: ga ? !!ga.checked : (prevGist.autoSync !== false),
+        lastSyncAt: prevGist.lastSyncAt || 0
+    };
+    
     localStorage.setItem('wineSettings', JSON.stringify(settings));
+    updateSyncStatus();
     showToast('设置已保存');
 }
 
@@ -3554,7 +3798,7 @@ async function doGenerate(basicNote, sectionId, contentId) {
         if (zhPane) zhPane.textContent = noteZh;
         if (enPane) enPane.textContent = noteEn;
         
-        notes.unshift({
+        const newNote = ensureNoteMeta({
             wineName: formData.wineName || '未命名',
             date: new Date().toLocaleDateString('zh-CN'),
             formData: JSON.parse(JSON.stringify(formData)),
@@ -3564,8 +3808,10 @@ async function doGenerate(basicNote, sectionId, contentId) {
             resultTextZh: noteZh,
             resultTextEn: noteEn
         });
+        notes.unshift(newNote);
         try { saveToStorage(); } catch (saveErr) { console.warn('saveToStorage failed:', saveErr); }
         renderNotesList();
+        scheduleAutoSync();
         
         showToast('✨ 已生成，已保存到「我的笔记」');
     } catch (e) {
