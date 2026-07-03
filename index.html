@@ -2068,6 +2068,11 @@
                             <span class="speech-provider-name">讯飞实时转写</span>
                         </div>
                         <div class="speech-provider-item" onclick="selectSpeechProvider(this)">
+                            <input type="radio" name="provider" value="xfyun_llm">
+                            <span class="speech-provider-dot"></span>
+                            <span class="speech-provider-name">讯飞大模型（低延迟）</span>
+                        </div>
+                        <div class="speech-provider-item" onclick="selectSpeechProvider(this)">
                             <input type="radio" name="provider" value="aliyun">
                             <span class="speech-provider-dot"></span>
                             <span class="speech-provider-name">阿里云 ASR</span>
@@ -2091,6 +2096,21 @@
                         <div class="settings-row">
                             <label class="settings-label">API Key</label>
                             <input type="password" class="settings-input" id="xfyunApiKey" placeholder="请输入">
+                        </div>
+                    </div>
+                    
+                    <div class="speech-fields" id="xfyunLlmFields">
+                        <div class="settings-row">
+                            <label class="settings-label">AppID</label>
+                            <input type="text" class="settings-input" id="xfyunLlmAppId" placeholder="请输入">
+                        </div>
+                        <div class="settings-row">
+                            <label class="settings-label">AccessKey ID</label>
+                            <input type="password" class="settings-input" id="xfyunLlmAccessKeyId" placeholder="请输入">
+                        </div>
+                        <div class="settings-row">
+                            <label class="settings-label">AccessKey Secret</label>
+                            <input type="password" class="settings-input" id="xfyunLlmAccessKeySecret" placeholder="请输入">
                         </div>
                     </div>
                     
@@ -2302,6 +2322,7 @@ let settings = {
     style: 'professional',
     speechProvider: 'browser',
     xfyun: { appId: '', apiSecret: '', apiKey: '' },
+    xfyunLlm: { appId: '', accessKeyId: '', accessKeySecret: '' },
     aliyun: { accessKeyId: '', accessKeySecret: '', appKey: '' },
     custom: { wsUrl: '', token: '' },
     gistSync: { token: '', gistId: '', autoSync: true, lastSyncAt: 0 }
@@ -2623,6 +2644,12 @@ function loadSettings() {
             document.getElementById('xfyunAppId').value = settings.xfyun.appId || '';
             document.getElementById('xfyunApiSecret').value = settings.xfyun.apiSecret || '';
             document.getElementById('xfyunApiKey').value = settings.xfyun.apiKey || '';
+        }
+        
+        if (settings.xfyunLlm) {
+            document.getElementById('xfyunLlmAppId').value = settings.xfyunLlm.appId || '';
+            document.getElementById('xfyunLlmAccessKeyId').value = settings.xfyunLlm.accessKeyId || '';
+            document.getElementById('xfyunLlmAccessKeySecret').value = settings.xfyunLlm.accessKeySecret || '';
         }
         
         if (settings.aliyun) {
@@ -3260,6 +3287,7 @@ function updateVoiceControlUI() {
 function stopAllRecognition() {
     if (recognition) { try { recognition.stop(); } catch(_) {} }
     if (xfyunWs) endXfyunSession();
+    if (xfyunLlmWs) endXfyunLlmSession();
     if (aliyunWs) { try { aliyunWs.close(); } catch(_) {} aliyunWs = null; }
     if (customWs) { try { customWs.close(); } catch(_) {} customWs = null; }
     stopAudioCapture();
@@ -3270,11 +3298,13 @@ function startCurrentRecognition() {
     const currentText = document.getElementById('voiceModalResult').value || '';
     voiceResults[currentVoiceField] = currentText;
     xfyunResultText = currentText;
+    xfyunLlmResultText = currentText;
     aliyunResultText = currentText;
     
     const provider = settings.speechProvider || 'browser';
     if (provider === 'browser') startBrowserSpeech();
     else if (provider === 'xfyun') startXfyunSpeech();
+    else if (provider === 'xfyun_llm') startXfyunLlmSpeech();
     else if (provider === 'aliyun') startAliyunSpeech();
     else if (provider === 'custom') startCustomSpeech();
 }
@@ -3319,6 +3349,8 @@ function startVoiceRecord(field) {
         startBrowserSpeech();
     } else if (provider === 'xfyun') {
         startXfyunSpeech();
+    } else if (provider === 'xfyun_llm') {
+        startXfyunLlmSpeech();
     } else if (provider === 'aliyun') {
         startAliyunSpeech();
     } else if (provider === 'custom') {
@@ -3529,6 +3561,202 @@ async function startXfyunSpeech() {
     };
 }
 
+// ==================== 讯飞大模型（RTASR-LLM） ====================
+let xfyunLlmWs = null;
+let xfyunLlmResultText = '';
+let xfyunLlmSessionId = '';
+let xfyunLlmReleasedPromise = Promise.resolve();
+
+// 讯飞大模型错误码提示
+const XFYUN_LLM_ERROR_HINTS = {
+    '35001': '鉴权失败：签名不正确，检查 accessKeySecret。',
+    '35004': 'appId 不存在。',
+    '35010': 'accessKeyId 不存在。',
+    '35014': '时间戳偏差过大，检查设备时间。',
+    '35017': 'accessKeyId 与 appId 不匹配。',
+    '35020': '语种不支持。',
+    '35030': '签名过期或重复。'
+};
+
+// 生成 utc 时间戳：2025-09-04T15:38:07+0800（本地时区）
+function xfyunLlmUtcNow() {
+    const d = new Date();
+    const pad = n => (n < 10 ? '0' + n : '' + n);
+    const off = -d.getTimezoneOffset();
+    const sign = off >= 0 ? '+' : '-';
+    const h = pad(Math.floor(Math.abs(off) / 60));
+    const m = pad(Math.abs(off) % 60);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+        + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
+        + sign + h + m;
+}
+
+// 优雅结束讯飞大模型会话：发送 end 帧（带 sessionId）
+function endXfyunLlmSession() {
+    if (!xfyunLlmWs) return;
+    const ws = xfyunLlmWs;
+    const sid = xfyunLlmSessionId;
+    xfyunLlmWs = null;
+    xfyunLlmSessionId = '';
+    ws.onopen = ws.onmessage = ws.onerror = null;
+
+    xfyunLlmReleasedPromise = new Promise(resolve => {
+        let done = false;
+        const finish = () => { if (done) return; done = true; resolve(); };
+        ws.onclose = () => finish();
+        setTimeout(() => {
+            if (!done) { try { ws.close(); } catch(_) {} }
+            finish();
+        }, 300);
+    });
+
+    try {
+        if (ws.readyState === WebSocket.OPEN) {
+            const endFrame = sid ? JSON.stringify({ end: true, sessionId: sid }) : '{"end": true}';
+            try { ws.send(endFrame); } catch(_) {}
+        } else {
+            try { ws.close(); } catch(_) {}
+        }
+    } catch(_) {
+        try { ws.close(); } catch(__) {}
+    }
+}
+
+async function startXfyunLlmSpeech() {
+    const cfg = settings.xfyunLlm || {};
+    const sanitize = s => (s || '').replace(/[\s\u200B-\u200D\uFEFF\u3000]/g, '');
+    const appId = sanitize(cfg.appId);
+    const accessKeyId = sanitize(cfg.accessKeyId);
+    const accessKeySecret = sanitize(cfg.accessKeySecret);
+    if (!appId || !accessKeyId || !accessKeySecret) {
+        document.getElementById('voiceModalStatus').textContent = '请先在设置中填写讯飞大模型 AppID / AccessKey ID / AccessKey Secret';
+        return;
+    }
+    console.log('[xfyun_llm] appId len=' + appId.length + ' aki len=' + accessKeyId.length + ' aks len=' + accessKeySecret.length);
+
+    endXfyunLlmSession();
+
+    document.getElementById('voiceModalStatus').textContent = '连接讯飞大模型中...';
+    await xfyunLlmReleasedPromise;
+
+    xfyunLlmResultText = voiceResults[currentVoiceField] || '';
+
+    // 构造签名：HmacSHA1( baseString, accessKeySecret ) → Base64
+    const utc = xfyunLlmUtcNow();
+    const uuid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g, '') : 'x'.repeat(32).replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+    const params = {
+        accessKeyId: accessKeyId,
+        appId: appId,
+        audio_encode: 'pcm_s16le',
+        lang: 'autodialect',
+        samplerate: '16000',
+        utc: utc,
+        uuid: uuid
+    };
+    const keys = Object.keys(params).sort();
+    const baseString = keys.map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+    const sigBin = CryptoJS.HmacSHA1(baseString, accessKeySecret);
+    const signature = CryptoJS.enc.Base64.stringify(sigBin);
+    console.log('[xfyun_llm] utc=' + utc + ' baseString=' + baseString + ' sig=' + signature);
+    const url = 'wss://office-api-ast-dx.iflyaisol.com/ast/communicate/v1?' + baseString + '&signature=' + encodeURIComponent(signature);
+
+    try {
+        xfyunLlmWs = new WebSocket(url);
+    } catch(e) {
+        document.getElementById('voiceModalStatus').textContent = '连接失败：' + (e.message || e);
+        return;
+    }
+
+    let audioStarted = false;
+    const startAudioIfNeeded = () => {
+        if (audioStarted) return;
+        audioStarted = true;
+        document.getElementById('voiceModalStatus').textContent = '请开始说话...';
+        startAudioCapture(pcmData => {
+            if (xfyunLlmWs && xfyunLlmWs.readyState === WebSocket.OPEN) {
+                const bytes = new Uint8Array(pcmData.buffer);
+                const CHUNK = 1280;
+                for (let i = 0; i < bytes.length; i += CHUNK) {
+                    xfyunLlmWs.send(bytes.slice(i, i + CHUNK));
+                }
+            }
+        });
+    };
+
+    xfyunLlmWs.onopen = () => {
+        // 部分实现不发 started 帧，握手成功 500ms 未收到就直接开始发音
+        setTimeout(() => { if (xfyunLlmWs) startAudioIfNeeded(); }, 500);
+    };
+
+    xfyunLlmWs.onmessage = event => {
+        let data;
+        try { data = JSON.parse(event.data); } catch(e) { return; }
+
+        // 兼容 msg_type 和 action 两种字段命名
+        const kind = data.msg_type || data.action || '';
+
+        if (kind === 'started') {
+            xfyunLlmSessionId = data.sessionId || (data.data && data.data.sessionId) || '';
+            console.log('[xfyun_llm] started, sid=' + xfyunLlmSessionId);
+            startAudioIfNeeded();
+        } else if (kind === 'result' && data.data !== undefined) {
+            try {
+                const result = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+                let text = '';
+                ((result.cn && result.cn.st && result.cn.st.rt) || []).forEach(rt => {
+                    (rt.ws || []).forEach(ws => {
+                        (ws.cw || []).forEach(cw => { text += cw.w || ''; });
+                    });
+                });
+                try {
+                    const _seg = (result.seg_id !== undefined) ? result.seg_id : ((result.cn && result.cn.st && result.cn.st.seg_id !== undefined) ? result.cn.st.seg_id : '?');
+                    const _type = (result.cn && result.cn.st && result.cn.st.type) || '?';
+                    console.log('[xfyun_llm@' + Date.now() + '] seg=' + _seg + ' type=' + _type + ' len=' + text.length + ' text=' + text);
+                } catch(_) {}
+                if (text) {
+                    // type 0 是最终结果累加；type 1 是中间结果临时展示
+                    if (result.cn && result.cn.st && result.cn.st.type === '0') {
+                        xfyunLlmResultText += text;
+                        document.getElementById('voiceModalResult').value = xfyunLlmResultText;
+                    } else {
+                        document.getElementById('voiceModalResult').value = xfyunLlmResultText + text;
+                    }
+                }
+            } catch(e) { console.error('[xfyun_llm] parse result error', e); }
+        } else if (kind === 'error' || data.code) {
+            const code = String(data.code || (data.data && data.data.code) || '');
+            const desc = data.desc || data.message || (data.data && (data.data.desc || data.data.message)) || '';
+            const hint = XFYUN_LLM_ERROR_HINTS[code] || '';
+            let msg = '讯飞大模型错误';
+            if (code) msg += ' [' + code + ']';
+            if (desc) msg += ' ' + desc;
+            if (hint) msg += '\n' + hint;
+            console.error('[xfyun_llm] server error', data);
+            document.getElementById('voiceModalStatus').textContent = msg;
+        }
+    };
+
+    xfyunLlmWs.onerror = (e) => {
+        console.error('[xfyun_llm] ws error', e);
+        document.getElementById('voiceModalStatus').textContent = '讯飞大模型连接失败（检查网络或控制台日志）';
+    };
+
+    xfyunLlmWs.onclose = (e) => {
+        console.log('[xfyun_llm] ws close code=' + e.code + ' reason=' + e.reason + ' wasClean=' + e.wasClean);
+        stopAudioCapture();
+        const statusEl = document.getElementById('voiceModalStatus');
+        if (!statusEl) return;
+        const reason = (e.reason || '').toString();
+        if (/auth|signature|sign/i.test(reason)) {
+            statusEl.textContent = '讯飞大模型握手失败：' + reason + '\n请核对 AppID / AccessKey ID / AccessKey Secret。';
+            return;
+        }
+        if (statusEl.textContent.startsWith('讯飞大模型连接失败') || statusEl.textContent.startsWith('连接讯飞大模型中')) {
+            statusEl.textContent = '讯飞大模型已断开 code=' + e.code + (reason ? ' ' + reason : '');
+        }
+    };
+}
+
 let aliyunWs = null;
 let aliyunResultText = '';
 
@@ -3697,6 +3925,7 @@ function updateSpeechFields(provider) {
     document.querySelectorAll('.speech-fields').forEach(f => f.classList.remove('visible'));
     const fieldsMap = {
         xfyun: 'xfyunFields',
+        xfyun_llm: 'xfyunLlmFields',
         aliyun: 'aliyunFields',
         custom: 'customFields'
     };
@@ -3719,6 +3948,12 @@ function saveSettings() {
         appId: document.getElementById('xfyunAppId').value,
         apiSecret: document.getElementById('xfyunApiSecret').value,
         apiKey: document.getElementById('xfyunApiKey').value
+    };
+    
+    settings.xfyunLlm = {
+        appId: document.getElementById('xfyunLlmAppId').value,
+        accessKeyId: document.getElementById('xfyunLlmAccessKeyId').value,
+        accessKeySecret: document.getElementById('xfyunLlmAccessKeySecret').value
     };
     
     settings.aliyun = {
