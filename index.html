@@ -869,6 +869,52 @@
             text-align: left;
         }
         
+        .voice-modal-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+        
+        .voice-modal-ctrl-btn {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 14px;
+            border: 1.5px solid var(--wine-red);
+            background: #fff;
+            color: var(--wine-red);
+            border-radius: 22px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .voice-modal-ctrl-btn:hover {
+            background: rgba(139, 58, 58, 0.08);
+        }
+        
+        .voice-modal-ctrl-btn.recording {
+            background: linear-gradient(135deg, var(--wine-red), var(--wine-light));
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(139, 58, 58, 0.25);
+        }
+        
+        .voice-modal-ctrl-btn.editing {
+            background: linear-gradient(135deg, #d4a760, #c69249);
+            color: #fff;
+            border-color: transparent;
+        }
+        
+        .voice-modal-result[readonly] {
+            background: var(--bg-cream);
+            cursor: default;
+        }
+        
         .voice-modal-btns {
             display: flex;
             gap: 10px;
@@ -2058,6 +2104,16 @@
             <div class="voice-modal-title" id="voiceModalTitle">正在录音...</div>
             <div class="voice-modal-status" id="voiceModalStatus">请开始说话</div>
             <textarea class="voice-modal-result" id="voiceModalResult" placeholder="识别结果会显示在这里..."></textarea>
+            <div class="voice-modal-controls">
+                <button class="voice-modal-ctrl-btn recording" id="voiceRecordBtn" onclick="toggleVoiceRecording()">
+                    <span id="voiceRecordBtnIcon">⏹</span>
+                    <span id="voiceRecordBtnLabel">停止录音</span>
+                </button>
+                <button class="voice-modal-ctrl-btn" id="voiceEditBtn" onclick="toggleVoiceEdit()">
+                    <span>✏️</span>
+                    <span id="voiceEditBtnLabel">编辑</span>
+                </button>
+            </div>
             <div class="voice-modal-btns">
                 <button class="voice-modal-btn btn-cancel" onclick="cancelVoice()">取消</button>
                 <button class="voice-modal-btn btn-confirm" onclick="confirmVoice()">确认</button>
@@ -2828,6 +2884,91 @@ function setupSpeechRecognition() {
     };
 }
 
+// UX v2: 三状态录音控制 recording / paused / editing / idle
+let voiceState = 'idle';
+
+function updateVoiceControlUI() {
+    const recIcon = document.getElementById('voiceRecordBtnIcon');
+    const recLabel = document.getElementById('voiceRecordBtnLabel');
+    const recBtn = document.getElementById('voiceRecordBtn');
+    const editLabel = document.getElementById('voiceEditBtnLabel');
+    const editBtn = document.getElementById('voiceEditBtn');
+    const resultEl = document.getElementById('voiceModalResult');
+    if (!recBtn || !editBtn || !resultEl) return;
+    
+    recBtn.classList.remove('recording');
+    editBtn.classList.remove('editing');
+    
+    if (voiceState === 'recording') {
+        recIcon.textContent = '⏹';
+        recLabel.textContent = '停止录音';
+        recBtn.classList.add('recording');
+        editLabel.textContent = '编辑';
+        resultEl.setAttribute('readonly', 'readonly');
+    } else if (voiceState === 'editing') {
+        recIcon.textContent = '🎤';
+        recLabel.textContent = '继续录音';
+        editLabel.textContent = '完成编辑';
+        editBtn.classList.add('editing');
+        resultEl.removeAttribute('readonly');
+        setTimeout(() => { try { resultEl.focus(); const l = resultEl.value.length; resultEl.setSelectionRange(l, l); } catch(_) {} }, 30);
+    } else {
+        // paused / idle
+        recIcon.textContent = '🎤';
+        recLabel.textContent = '开始录音';
+        editLabel.textContent = '编辑';
+        resultEl.removeAttribute('readonly');
+    }
+}
+
+function stopAllRecognition() {
+    if (recognition) { try { recognition.stop(); } catch(_) {} }
+    if (xfyunWs) endXfyunSession();
+    if (aliyunWs) { try { aliyunWs.close(); } catch(_) {} aliyunWs = null; }
+    if (customWs) { try { customWs.close(); } catch(_) {} customWs = null; }
+    stopAudioCapture();
+}
+
+function startCurrentRecognition() {
+    // 从当前 textarea 内容作为续录起点（用户可能编辑过），同步到各引擎的累加变量
+    const currentText = document.getElementById('voiceModalResult').value || '';
+    voiceResults[currentVoiceField] = currentText;
+    xfyunResultText = currentText;
+    aliyunResultText = currentText;
+    
+    const provider = settings.speechProvider || 'browser';
+    if (provider === 'browser') startBrowserSpeech();
+    else if (provider === 'xfyun') startXfyunSpeech();
+    else if (provider === 'aliyun') startAliyunSpeech();
+    else if (provider === 'custom') startCustomSpeech();
+}
+
+async function toggleVoiceRecording() {
+    if (voiceState === 'recording') {
+        stopAllRecognition();
+        voiceState = 'paused';
+        document.getElementById('voiceModalStatus').textContent = '已停止（可直接编辑文本或再次录音）';
+    } else {
+        // paused / editing 都进入录音
+        startCurrentRecognition();
+        voiceState = 'recording';
+    }
+    updateVoiceControlUI();
+}
+
+function toggleVoiceEdit() {
+    if (voiceState === 'editing') {
+        voiceState = 'paused';
+        document.getElementById('voiceModalStatus').textContent = '编辑完成（可继续录音或确认）';
+    } else {
+        // 从 recording / paused 进入编辑：先停录音
+        stopAllRecognition();
+        voiceState = 'editing';
+        document.getElementById('voiceModalStatus').textContent = '编辑模式：直接修改识别结果';
+    }
+    updateVoiceControlUI();
+}
+
 function startVoiceRecord(field) {
     currentVoiceField = field;
     document.getElementById('voiceModalResult').value = voiceResults[field] || '';
@@ -2847,6 +2988,10 @@ function startVoiceRecord(field) {
     } else if (provider === 'custom') {
         startCustomSpeech();
     }
+    
+    // 初始化 UX 状态：默认自动开始录音
+    voiceState = 'recording';
+    updateVoiceControlUI();
 }
 
 function startBrowserSpeech() {
@@ -2891,20 +3036,33 @@ const XFYUN_ERROR_HINTS = {
 
 let xfyunWs = null;
 let xfyunResultText = '';
+// 追踪讯飞旧会话的"服务端确认释放"信号，供 startXfyunSpeech await
+let xfyunReleasedPromise = Promise.resolve();
 
 // 优雅结束讯飞会话：发送 end 帧让服务端立即释放并发路，避免撞 over max limit
+// 建立 xfyunReleasedPromise，供下次 startXfyunSpeech await（等到服务端真正释放再连新的）
 function endXfyunSession() {
     if (!xfyunWs) return;
     const ws = xfyunWs;
     xfyunWs = null;
-    // 前端 UI 已视为结束，屏蔽旧连接后续任何回调
-    ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+    // 屏蔽业务回调（onopen/onmessage/onerror），保留 onclose 作为"服务端确认释放"信号
+    ws.onopen = ws.onmessage = ws.onerror = null;
+
+    xfyunReleasedPromise = new Promise(resolve => {
+        let done = false;
+        const finish = () => { if (done) return; done = true; resolve(); };
+        ws.onclose = () => finish();
+        // 兜底 1500ms：讯飞异常不 close 时不阻塞新会话
+        setTimeout(() => {
+            if (!done) { try { ws.close(); } catch(_) {} }
+            finish();
+        }, 1500);
+    });
+
     try {
         if (ws.readyState === WebSocket.OPEN) {
-            // 讯飞 RTASR 规定：发送 {"end": true} 结束帧，服务端立即结算并释放会话
+            // 讯飞 RTASR 规定：发送 {"end": true} 结束帧，服务端立即结算并主动 close
             try { ws.send('{"end": true}'); } catch(_) {}
-            // 给服务端 800ms 处理完最后一帧再 close，避免 send 后立刻断线丢包
-            setTimeout(() => { try { ws.close(); } catch(_) {} }, 800);
         } else {
             try { ws.close(); } catch(_) {}
         }
@@ -2913,7 +3071,7 @@ function endXfyunSession() {
     }
 }
 
-function startXfyunSpeech() {
+async function startXfyunSpeech() {
     const cfg = settings.xfyun || {};
     // 严格清理：去掉零宽字符/BOM/全角空格/换行/任何空白，避免粘贴时混入不可见字符
     const sanitize = s => (s || '').replace(/[\s\u200B-\u200D\uFEFF\u3000]/g, '');
@@ -2927,6 +3085,20 @@ function startXfyunSpeech() {
     
     // 启动前优雅结束旧会话，通知服务端释放并发路（发 end 帧比 close 快得多）
     endXfyunSession();
+
+    // 在用户手势栈内同步发起麦克风申请，与 WebSocket 建连并行进行，减少首次录音等待
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const needStream = !mediaStream || !mediaStream.active || mediaStream.getTracks().every(t => t.readyState === 'ended');
+        if (needStream) {
+            navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true } })
+                .then(s => { mediaStream = s; })
+                .catch(_ => { /* 错误在 startAudioCapture 时会重新处理 */ });
+        }
+    }
+
+    // 等待旧会话服务端确认释放（首次调用时 promise 已 resolve，立即通过）
+    document.getElementById('voiceModalStatus').textContent = '准备中...';
+    await xfyunReleasedPromise;
     
     xfyunResultText = voiceResults[currentVoiceField] || '';
     
@@ -3101,7 +3273,10 @@ async function startAudioCapture(onData) {
         return;
     }
     try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true } });
+        // 优先复用已存在的 stream（如 startXfyunSpeech 已预热），避免重复权限申请
+        if (!mediaStream || !mediaStream.active || mediaStream.getTracks().every(t => t.readyState === 'ended')) {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true } });
+        }
         audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
         const source = audioContext.createMediaStreamSource(mediaStream);
         
@@ -3125,8 +3300,9 @@ async function startAudioCapture(onData) {
 
 function stopAudioCapture() {
     if (audioProcessor) { audioProcessor.disconnect(); audioProcessor = null; }
-    if (audioContext) { audioContext.close(); audioContext = null; }
-    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    if (audioContext) { try { audioContext.close(); } catch(_){} audioContext = null; }
+    // 保留 mediaStream 供后续会话复用：避免每次录音都重新申请权限+初始化 stream 的延迟
+    // 浏览器 tab 会显示"正在使用麦克风"标记，关闭 tab 或刷新时自动释放
     audioCaptureCallback = null;
 }
 
@@ -3136,6 +3312,7 @@ function cancelVoice() {
     if (aliyunWs) { try { aliyunWs.close(); } catch(e){} aliyunWs = null; }
     if (customWs) { try { customWs.close(); } catch(e){} customWs = null; }
     stopAudioCapture();
+    voiceState = 'idle';
     document.getElementById('voiceModal').classList.remove('active');
 }
 
@@ -3158,6 +3335,7 @@ function confirmVoice() {
     statusEl.classList.toggle('done', result.length > 0);
     
     saveToStorage();
+    voiceState = 'idle';
     document.getElementById('voiceModal').classList.remove('active');
     showToast('已保存');
 }
