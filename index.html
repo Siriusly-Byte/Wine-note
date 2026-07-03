@@ -3052,11 +3052,11 @@ function endXfyunSession() {
         let done = false;
         const finish = () => { if (done) return; done = true; resolve(); };
         ws.onclose = () => finish();
-        // 兜底 1500ms：讯飞异常不 close 时不阻塞新会话
+        // 兜底 300ms：讯飞收到 end 帧那一刻已释放并发路，不必等物理 close
         setTimeout(() => {
             if (!done) { try { ws.close(); } catch(_) {} }
             finish();
-        }, 1500);
+        }, 300);
     });
 
     try {
@@ -3086,18 +3086,10 @@ async function startXfyunSpeech() {
     // 启动前优雅结束旧会话，通知服务端释放并发路（发 end 帧比 close 快得多）
     endXfyunSession();
 
-    // 在用户手势栈内同步发起麦克风申请，与 WebSocket 建连并行进行，减少首次录音等待
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const needStream = !mediaStream || !mediaStream.active || mediaStream.getTracks().every(t => t.readyState === 'ended');
-        if (needStream) {
-            navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true } })
-                .then(s => { mediaStream = s; })
-                .catch(_ => { /* 错误在 startAudioCapture 时会重新处理 */ });
-        }
-    }
+    // 不再"预热"麦克风：等 startAudioCapture 真正需要时再申请，确保停止后录音灯立即熄灭
 
     // 等待旧会话服务端确认释放（首次调用时 promise 已 resolve，立即通过）
-    document.getElementById('voiceModalStatus').textContent = '准备中...';
+    document.getElementById('voiceModalStatus').textContent = '连接讯飞中...';
     await xfyunReleasedPromise;
     
     xfyunResultText = voiceResults[currentVoiceField] || '';
@@ -3118,7 +3110,7 @@ async function startXfyunSpeech() {
     }
     
     xfyunWs.onopen = () => {
-        document.getElementById('voiceModalStatus').textContent = '正在握手...';
+        // 不再切换到"握手中"这种中间态，避免用户感知多次状态跳变
     };
     
     xfyunWs.onmessage = event => {
@@ -3280,7 +3272,7 @@ async function startAudioCapture(onData) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
         const source = audioContext.createMediaStreamSource(mediaStream);
         
-        audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+        audioProcessor = audioContext.createScriptProcessor(2048, 1, 1);
         audioProcessor.onaudioprocess = e => {
             const float32 = e.inputBuffer.getChannelData(0);
             const int16 = new Int16Array(float32.length);
@@ -3301,8 +3293,12 @@ async function startAudioCapture(onData) {
 function stopAudioCapture() {
     if (audioProcessor) { audioProcessor.disconnect(); audioProcessor = null; }
     if (audioContext) { try { audioContext.close(); } catch(_){} audioContext = null; }
-    // 保留 mediaStream 供后续会话复用：避免每次录音都重新申请权限+初始化 stream 的延迟
-    // 浏览器 tab 会显示"正在使用麦克风"标记，关闭 tab 或刷新时自动释放
+    // 立即释放麦克风 track，避免"录音指示灯常亮"的隐私顾虑
+    // 浏览器已缓存过权限，下次 getUserMedia 不会再弹弹窗，只是多 100-300ms 初始化
+    if (mediaStream) {
+        try { mediaStream.getTracks().forEach(t => { try { t.stop(); } catch(_) {} }); } catch(_) {}
+        mediaStream = null;
+    }
     audioCaptureCallback = null;
 }
 
@@ -3428,7 +3424,8 @@ async function doGenerate(basicNote, sectionId, contentId) {
     
     try {
         let noteZh = '', noteEn = '';
-        if (settings.apiKey) {
+        const apiKey = (settings.apiKey || '').trim();
+        if (apiKey) {
             // 并行调用两次，加快双语生成
             const results = await Promise.allSettled([
                 callAPI(basicNote, 'zh'),
@@ -3439,6 +3436,9 @@ async function doGenerate(basicNote, sectionId, contentId) {
             if (results[1].status === 'fulfilled') noteEn = results[1].value;
             else throw new Error(results[1].reason?.message || 'English generation failed');
         } else {
+            // 明确告知用户：未配置 API Key 只能走本地拼接（散文字），生成不了专业品酒词
+            console.warn('[generate] settings.apiKey 为空，走本地降级模板');
+            showToast('⚠️ 未配置 API Key，无法生成专业品酒词，请到"设置 → API 服务"填入千问 Key');
             noteZh = generateLocalNote(basicNote, 'zh');
             noteEn = generateLocalNote(basicNote, 'en');
         }
@@ -3780,17 +3780,47 @@ function generateLocalNote(basicNote, lang) {
     const typeMapEn = { red: 'red', white: 'white', rose: 'rosé', sparkling: 'sparkling', orange: 'orange' };
     const typeKey = (formData.wineType || '').trim();
     
+    // ---- 优先识别语音三段格式：【香气】【口感】【整体】 ----
+    const voiceMap = { aroma: '', palate: '', overall: '' };
+    lines.forEach(l => {
+        const m = l.match(/^【(香气|嗅觉|Nose)】(.+)$/i);
+        if (m) { voiceMap.aroma = m[2].trim(); return; }
+        const m2 = l.match(/^【(口感|风味|Palate)】(.+)$/i);
+        if (m2) { voiceMap.palate = m2[2].trim(); return; }
+        const m3 = l.match(/^【(整体|结论|Overall|总评)】(.+)$/i);
+        if (m3) { voiceMap.overall = m3[2].trim(); return; }
+    });
+    const isVoiceMode = !!(voiceMap.aroma || voiceMap.palate || voiceMap.overall);
+    
     if (lang === 'en') {
         const typeLabel = typeMapEn[typeKey] || 'wine';
+        if (isVoiceMode) {
+            const partsEn = [];
+            partsEn.push(`In the glass sits a ${typeLabel} wine.`);
+            if (voiceMap.aroma)   partsEn.push(`On the nose, ${voiceMap.aroma}`);
+            if (voiceMap.palate)  partsEn.push(`On the palate, ${voiceMap.palate}`);
+            if (voiceMap.overall) partsEn.push(`Overall, ${voiceMap.overall}`);
+            partsEn.push('(Configure a Qwen API Key in Settings for a professionally written English tasting note.)');
+            return partsEn.join(' ');
+        }
         const opening = `This is a ${typeLabel} wine.`;
         const body = lines.join(' ').replace(/【|】/g, ' ').trim();
         const ending = 'A wine worth savouring.';
         return `${opening}\n\n${body}\n\n${ending}\n\n(Configure an API key in Settings for a fully written English tasting note.)`;
     }
     
-    // 中文本地占位
+    // ---- 中文 ----
     const typeLabel = typeMapZh[typeKey] || '';
     const opening = typeLabel ? `这是一款${typeLabel}葡萄酒。` : '这是一款值得品鉴的葡萄酒。';
+    if (isVoiceMode) {
+        const partsZh = [opening];
+        if (voiceMap.aroma)   partsZh.push(`嗅闻之，${voiceMap.aroma}`);
+        if (voiceMap.palate)  partsZh.push(`入口之后，${voiceMap.palate}`);
+        if (voiceMap.overall) partsZh.push(`总体而言，${voiceMap.overall}`);
+        partsZh.push('（未配置千问 API Key，以上为本地拼接结果，配置后可生成完整专业品酒词。）');
+        return partsZh.join('');
+    }
+    // 表单模式本地占位（原逻辑）
     const appearanceLine = lines.find(l => l.includes('外观'));
     const noseLines = lines.filter(l => l.includes('一类') || l.includes('二类') || l.includes('三类'));
     const palateLine = lines.find(l => l.includes('甜度') || l.includes('口感'));
