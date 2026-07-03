@@ -6,6 +6,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>品酒笔记</title>
+    <!-- eruda 移动端调试控制台（诊断用，完事可删） -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>if (typeof eruda !== "undefined") { eruda.init(); }</script>
     <style>
         * {
             margin: 0;
@@ -3471,6 +3474,12 @@ async function startXfyunSpeech() {
                         (ws.cw || []).forEach(cw => { text += cw.w || ''; });
                     });
                 });
+                // [DIAG-XFYUN] 诊断推送密度与断句时机（用完删掉本段）
+                try {
+                    const _seg = (result.cn && result.cn.st && result.cn.st.seg_id !== undefined) ? result.cn.st.seg_id : (result.seg_id !== undefined ? result.seg_id : '?');
+                    const _type = (result.cn && result.cn.st && result.cn.st.type) || '?';
+                    console.log('[xfyun@' + Date.now() + '] seg=' + _seg + ' type=' + _type + ' len=' + text.length + ' text=' + text);
+                } catch(_) {}
                 if (text) {
                     // type 0 是最终结果，累加；type 1 是中间结果，临时展示
                     if (result.cn && result.cn.st && result.cn.st.type === '0') {
