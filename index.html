@@ -1458,6 +1458,48 @@
             content: '生成中...';
             color: var(--text-gray);
         }
+
+        .result-lang-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #EBE0DA;
+        }
+        
+        .result-lang-tab {
+            background: transparent;
+            border: none;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-gray);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        
+        .result-lang-tab.active {
+            color: #8B3A3A;
+            border-bottom-color: #8B3A3A;
+        }
+        
+        .result-lang-pane {
+            display: none;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-dark);
+            white-space: pre-wrap;
+        }
+        
+        .result-lang-pane.active {
+            display: block;
+        }
+        
+        .result-lang-pane:empty::before {
+            content: '生成中...';
+            color: var(--text-gray);
+        }
         
         .result-buttons {
             display: flex;
@@ -1765,7 +1807,14 @@
                             <button class="result-btn" onclick="exportImage()">导出</button>
                         </div>
                     </div>
-                    <div class="result-content" id="resultContent"></div>
+                    <div class="result-content" id="resultContent">
+                        <div class="result-lang-tabs">
+                            <button type="button" class="result-lang-tab active" data-lang="zh" onclick="switchResultLang('resultContent', 'zh')">中文</button>
+                            <button type="button" class="result-lang-tab" data-lang="en" onclick="switchResultLang('resultContent', 'en')">English</button>
+                        </div>
+                        <div class="result-lang-pane active" data-lang="zh"></div>
+                        <div class="result-lang-pane" data-lang="en"></div>
+                    </div>
                     <div class="result-buttons">
                         <button class="result-btn-main copy" onclick="copyResult()">📋 复制</button>
                         <button class="result-btn-main export" onclick="exportImage()">📱 导出图片</button>
@@ -1828,7 +1877,14 @@
                                 <button class="result-btn" onclick="exportImage()">导出</button>
                             </div>
                         </div>
-                        <div class="result-content" id="voiceResultContent"></div>
+                        <div class="result-content" id="voiceResultContent">
+                            <div class="result-lang-tabs">
+                                <button type="button" class="result-lang-tab active" data-lang="zh" onclick="switchResultLang('voiceResultContent', 'zh')">中文</button>
+                                <button type="button" class="result-lang-tab" data-lang="en" onclick="switchResultLang('voiceResultContent', 'en')">English</button>
+                            </div>
+                            <div class="result-lang-pane active" data-lang="zh"></div>
+                            <div class="result-lang-pane" data-lang="en"></div>
+                        </div>
                         <div class="result-buttons">
                             <button class="result-btn-main copy" onclick="copyResult()">📋 复制</button>
                             <button class="result-btn-main export" onclick="exportImage()">📱 导出图片</button>
@@ -2640,12 +2696,36 @@ function renderNotesList() {
                     <div class="note-item-date">${note.date}</div>
                 </div>
             </div>
-            <div class="note-item-preview">${note.resultText?.slice(0, 80) || ''}...</div>
+            <div class="note-item-preview">${(note.resultTextZh || note.resultText || '').slice(0, 80)}...</div>
             <div class="note-item-actions">
                 <button class="note-action-btn delete" onclick="event.stopPropagation(); deleteNote(${i})">删除</button>
             </div>
         </div>
     `).join('');
+}
+
+function buildNoteDetailBilingual(zh, en) {
+    const wrap = document.createElement('div');
+    wrap.className = 'result-content';
+    wrap.style.padding = '0';
+    wrap.innerHTML = `
+        <div class="result-lang-tabs">
+            <button type="button" class="result-lang-tab active" data-lang="zh">中文</button>
+            <button type="button" class="result-lang-tab" data-lang="en">English</button>
+        </div>
+        <div class="result-lang-pane active" data-lang="zh"></div>
+        <div class="result-lang-pane" data-lang="en"></div>
+    `;
+    wrap.querySelector('.result-lang-pane[data-lang="zh"]').textContent = zh;
+    wrap.querySelector('.result-lang-pane[data-lang="en"]').textContent = en;
+    wrap.querySelectorAll('.result-lang-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const lang = btn.dataset.lang;
+            wrap.querySelectorAll('.result-lang-tab').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+            wrap.querySelectorAll('.result-lang-pane').forEach(p => p.classList.toggle('active', p.dataset.lang === lang));
+        });
+    });
+    return wrap;
 }
 
 function openNoteDetail(index) {
@@ -2662,7 +2742,16 @@ function openNoteDetail(index) {
         photoEl.style.display = 'none';
     }
     
-    document.getElementById('noteDetailText').textContent = note.resultText || '';
+    // 双语兼容：新数据有 resultTextZh/En，旧数据只有 resultText
+    const zh = note.resultTextZh || note.resultText || '';
+    const en = note.resultTextEn || '';
+    const detailEl = document.getElementById('noteDetailText');
+    if (en) {
+        detailEl.innerHTML = '';
+        detailEl.appendChild(buildNoteDetailBilingual(zh, en));
+    } else {
+        detailEl.textContent = zh;
+    }
     document.getElementById('noteDetailModal').classList.add('active');
 }
 
@@ -2672,7 +2761,9 @@ function closeNoteDetail() {
 }
 
 function copyNoteDetail() {
-    const text = document.getElementById('noteDetailText').textContent;
+    const container = document.getElementById('noteDetailText');
+    const activePane = container.querySelector('.result-lang-pane.active');
+    const text = activePane ? activePane.textContent : container.textContent;
     navigator.clipboard.writeText(text);
     showToast('已复制');
 }
@@ -3093,16 +3184,33 @@ async function doGenerate(basicNote, sectionId, contentId) {
     const loading = document.getElementById('loadingOverlay');
     loading.classList.add('active');
     
+    // 先把两个 pane 清空，让 :empty::before 触发"生成中..."占位
+    const container = document.getElementById(contentId);
+    const zhPane = container.querySelector('.result-lang-pane[data-lang="zh"]');
+    const enPane = container.querySelector('.result-lang-pane[data-lang="en"]');
+    if (zhPane) zhPane.textContent = '';
+    if (enPane) enPane.textContent = '';
+    document.getElementById(sectionId).classList.add('visible');
+    
     try {
-        let note = '';
+        let noteZh = '', noteEn = '';
         if (settings.apiKey) {
-            note = await callAPI(basicNote);
+            // 并行调用两次，加快双语生成
+            const results = await Promise.allSettled([
+                callAPI(basicNote, 'zh'),
+                callAPI(basicNote, 'en')
+            ]);
+            if (results[0].status === 'fulfilled') noteZh = results[0].value;
+            else throw new Error(results[0].reason?.message || '中文生成失败');
+            if (results[1].status === 'fulfilled') noteEn = results[1].value;
+            else throw new Error(results[1].reason?.message || 'English generation failed');
         } else {
-            note = generateLocalNote(basicNote);
+            noteZh = generateLocalNote(basicNote, 'zh');
+            noteEn = generateLocalNote(basicNote, 'en');
         }
         
-        document.getElementById(contentId).textContent = note;
-        document.getElementById(sectionId).classList.add('visible');
+        if (zhPane) zhPane.textContent = noteZh;
+        if (enPane) enPane.textContent = noteEn;
         
         notes.push({
             wineName: formData.wineName || '未命名',
@@ -3110,7 +3218,9 @@ async function doGenerate(basicNote, sectionId, contentId) {
             formData: JSON.parse(JSON.stringify(formData)),
             photoData,
             voiceResults: { ...voiceResults },
-            resultText: note
+            resultText: noteZh,
+            resultTextZh: noteZh,
+            resultTextEn: noteEn
         });
         try { saveToStorage(); } catch (saveErr) { console.warn('saveToStorage failed:', saveErr); }
         renderNotesList();
@@ -3335,16 +3445,22 @@ function onApiProviderChange() {
     if (modelEl) modelEl.placeholder = '默认：' + defaults.model;
 }
 
-async function callAPI(basicNote) {
+async function callAPI(basicNote, lang) {
+    lang = lang || 'zh';
     const provider = settings.apiProvider || 'dashscope';
     const defaults = API_DEFAULTS[provider] || API_DEFAULTS.dashscope;
     const apiUrl = (settings.apiBaseUrl || '').trim() || defaults.url;
     const model = (settings.apiModel || '').trim() || defaults.model;
     
+    const userContent = lang === 'en'
+        ? `Please write a coherent, professional and literary English tasting note based on the following WSET tasting points. Strictly follow the writing rules in the system prompt: pure English, natural paragraphs, order of Appearance → Nose → Palate → Conclusion, no bullet points, no key-value pairs, no Chinese characters.\n\n[Tasting Points]\n${basicNote}`
+        : `请根据以下WSET品鉴要点，写一段连贯、专业、有文学感的中文品酒词。严格遵守系统提示的写作规则：全程中文、段落叙述、外观→嗅觉→口感→结论顺序，不得罗列键值对或英文缩写。\n\n【品鉴要点】\n${basicNote}`;
+    
     const messages = [
-        { role: 'system', content: getStylePrompt() },
-        { role: 'user', content: `请根据以下WSET品鉴要点，写一段连贯、专业、有文学感的中文品酒词。严格遵守系统提示的写作规则：全程中文、段落叙述、外观→嗅觉→口感→结论顺序，不得罗列键值对或英文缩写。\n\n【品鉴要点】\n${basicNote}` }
+        { role: 'system', content: getStylePrompt(lang) },
+        { role: 'user', content: userContent }
     ];
+
     
     let body;
     if (provider === 'openai') {
@@ -3383,7 +3499,23 @@ async function callAPI(basicNote) {
     }
 }
 
-function getStylePrompt() {
+function getStylePrompt(lang) {
+    lang = lang || 'zh';
+    
+    if (lang === 'en') {
+        const styleGuidesEn = {
+            professional: 'Style: WSET Level 4 / SAT professional taster. Precise, restrained, objective, using SAT terminology, avoid flowery exaggeration.',
+            romantic: 'Style: poetic and lyrical. Use vivid, literary language with metaphors and synaesthesia, while keeping the tasting points intact.',
+            minimal: 'Style: minimalist. Deliver core characteristics and overall impression in one concise short paragraph.',
+            parker: "Style: emulate Robert Parker — authoritative, enthusiastic, evocative, with vivid similes and evaluative language."
+        };
+        const styleLineEn = styleGuidesEn[settings.style] || styleGuidesEn.professional;
+        
+        let promptEn = "You are an English wine writer fluent in the WSET SAT system, skilled at rewriting structured tasting data into a coherent, professional, literary English tasting note.\n\n[Hard Requirements]\n1. Pure English only. Never insert any Chinese characters. Any Chinese input (e.g. 干型, 中等偏高, 细腻) must be translated into proper English wine terminology (e.g. 'dry', 'medium (+)', 'fine').\n2. Output must be flowing prose in one or several paragraphs. Do NOT use key-value pairs like 'Sweetness: dry', bullet points, or section headings.\n3. Follow the natural order: Appearance → Nose → Palate → Conclusion, with smooth transitions such as 'In the glass', 'On the nose', 'On the palate', 'The finish', 'Overall'.\n4. Use accurate WSET terminology with evocative descriptors (e.g. 'ripe lemon peel, white peach, and a hint of almond'). Preserve every important tasting point from the input.\n5. Length: 180–320 English words. Never output Markdown symbols (no * # -).\n\n" + styleLineEn;
+        if (settings.customPrompt) promptEn += '\n\n[Additional Instructions]\n' + settings.customPrompt;
+        return promptEn;
+    }
+    
     const styleGuides = {
         professional: '风格定位：WSET四级/SAT系统专业品酒师。用词准确、克制、客观，遵循SAT术语体系，避免夸饰。',
         romantic: '风格定位：诗意抒情派。用优美、富画面感的文学化语言，善用比喻和通感，但保留品鉴要点。',
@@ -3406,13 +3538,63 @@ ${styleLine}`;
     return prompt;
 }
 
-function generateLocalNote(basicNote) {
-    const adj = ['优雅', '精致', '饱满', '圆润', '复杂'][Math.floor(Math.random() * 5)];
-    return `这是一款${adj}的葡萄酒。\n\n${basicNote}\n\n值得细细品味。`;
+function generateLocalNote(basicNote, lang) {
+    lang = lang || 'zh';
+    const lines = basicNote.split('\n').filter(l => l.trim());
+    
+    const typeMapZh = { red: '红', white: '白', rose: '桃红', sparkling: '起泡', orange: '橙' };
+    const typeMapEn = { red: 'red', white: 'white', rose: 'rosé', sparkling: 'sparkling', orange: 'orange' };
+    const typeKey = (formData.wineType || '').trim();
+    
+    if (lang === 'en') {
+        const typeLabel = typeMapEn[typeKey] || 'wine';
+        const opening = `This is a ${typeLabel} wine.`;
+        const body = lines.join(' ').replace(/【|】/g, ' ').trim();
+        const ending = 'A wine worth savouring.';
+        return `${opening}\n\n${body}\n\n${ending}\n\n(Configure an API key in Settings for a fully written English tasting note.)`;
+    }
+    
+    // 中文本地占位
+    const typeLabel = typeMapZh[typeKey] || '';
+    const opening = typeLabel ? `这是一款${typeLabel}葡萄酒。` : '这是一款值得品鉴的葡萄酒。';
+    const appearanceLine = lines.find(l => l.includes('外观'));
+    const noseLines = lines.filter(l => l.includes('一类') || l.includes('二类') || l.includes('三类'));
+    const palateLine = lines.find(l => l.includes('甜度') || l.includes('口感'));
+    const conclusionLine = lines.find(l => l.includes('质量') || l.includes('陈年'));
+    const bodyParts = [];
+    if (appearanceLine) bodyParts.push(appearanceLine.replace('外观：', '').trim());
+    if (noseLines.length > 0) bodyParts.push(noseLines.join('；').trim());
+    if (palateLine) bodyParts.push(palateLine.replace('口感：', '').trim());
+    const detail = bodyParts.length > 0 ? bodyParts.join('。') + '。' : '';
+    const ending = conclusionLine ? conclusionLine.replace('结论：', '').trim() : '值得细细品味。';
+    if (detail && ending) return `${opening}\n\n${detail}\n\n${ending}`;
+    if (detail) return `${opening}\n\n${detail}`;
+    return `${opening}\n\n${basicNote}\n\n值得细细品味。`;
+}
+
+function switchResultLang(containerId, lang) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('.result-lang-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+    container.querySelectorAll('.result-lang-pane').forEach(pane => {
+        pane.classList.toggle('active', pane.dataset.lang === lang);
+    });
 }
 
 function copyResult() {
-    const text = document.getElementById('resultContent')?.textContent || document.getElementById('voiceResultContent')?.textContent;
+    // 找到当前可见的 result-section，再取其中激活语言 pane 的内容
+    const sections = ['resultSection', 'voiceResultSection'];
+    let text = '';
+    for (const secId of sections) {
+        const sec = document.getElementById(secId);
+        if (sec && sec.classList.contains('visible')) {
+            const pane = sec.querySelector('.result-lang-pane.active');
+            if (pane) text = pane.textContent;
+            break;
+        }
+    }
     if (text) {
         navigator.clipboard.writeText(text);
         showToast('已复制');
@@ -3421,7 +3603,15 @@ function copyResult() {
 
 // ==================== 导出图片 ====================
 async function exportImage() {
-    const noteContent = document.getElementById('resultContent')?.textContent || document.getElementById('voiceResultContent')?.textContent;
+    let noteContent = '';
+    for (const secId of ['resultSection', 'voiceResultSection']) {
+        const sec = document.getElementById(secId);
+        if (sec && sec.classList.contains('visible')) {
+            const pane = sec.querySelector('.result-lang-pane.active');
+            if (pane) noteContent = pane.textContent;
+            break;
+        }
+    }
     if (!noteContent) {
         showToast('请先生成品酒词');
         return;
