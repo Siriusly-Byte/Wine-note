@@ -3553,7 +3553,7 @@ async function doGenerate(basicNote, sectionId, contentId) {
         if (zhPane) zhPane.textContent = noteZh;
         if (enPane) enPane.textContent = noteEn;
         
-        notes.push({
+        notes.unshift({
             wineName: formData.wineName || '未命名',
             date: new Date().toLocaleDateString('zh-CN'),
             formData: JSON.parse(JSON.stringify(formData)),
