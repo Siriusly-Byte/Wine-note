@@ -677,6 +677,71 @@
             color: var(--text-gray);
         }
         
+        .voice-meta {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            margin-bottom: 16px;
+        }
+        
+        .voice-wine-name {
+            flex: 1;
+            padding: 0 14px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border-light);
+            background: var(--bg-card);
+            font-size: 15px;
+            font-family: inherit;
+            color: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .voice-wine-name:focus {
+            border-color: var(--wine-light);
+        }
+        
+        .voice-photo-upload {
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #F5EDEA, #EDE5E0);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+            border: 2px dashed var(--border-light);
+            transition: border-color 0.2s;
+        }
+        
+        .voice-photo-upload:hover {
+            border-color: var(--wine-light);
+        }
+        
+        .voice-photo-upload.has-photo {
+            border: none;
+        }
+        
+        .voice-photo-upload img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .voice-photo-upload .voice-photo-icon {
+            font-size: 22px;
+            line-height: 1;
+        }
+        
+        .voice-photo-upload .voice-photo-text {
+            font-size: 11px;
+            color: var(--text-gray);
+            margin-top: 4px;
+        }
+        
         .voice-cards {
             flex: 1;
             display: flex;
@@ -1875,6 +1940,14 @@
                         <div class="voice-header-title">语音速记</div>
                         <div class="voice-header-subtitle">对着手机说出你的品酒感受</div>
                     </div>
+                    <div class="voice-meta">
+                        <input type="text" class="voice-wine-name" id="voiceWineName" placeholder="🍷 酒名（可选）" maxlength="60">
+                        <div class="voice-photo-upload" id="voicePhotoUploadArea" onclick="document.getElementById('voicePhotoInput').click()">
+                            <div class="voice-photo-icon">📷</div>
+                            <div class="voice-photo-text">照片</div>
+                        </div>
+                        <input type="file" id="voicePhotoInput" class="hidden-input" accept="image/*" onchange="handlePhotoUpload(event)">
+                    </div>
                     <div class="voice-cards">
                         <div class="voice-card" onclick="startVoiceRecord('aroma')">
                             <div class="voice-card-top">
@@ -2272,8 +2345,10 @@ function init() {
 
 // 存储
 function saveToStorage() {
+    // 只持久化 notes（历史笔记）和 formData / photoData（表单模式草稿）
+    // voiceResults 是"当前语音草稿"，刷新即清，故不写入 localStorage
     const tryWrite = () => localStorage.setItem('wineNotes', JSON.stringify({
-        notes, formData, photoData, voiceResults
+        notes, formData, photoData
     }));
     try {
         tryWrite();
@@ -2300,7 +2375,7 @@ function loadFromStorage() {
         if (parsed.notes) notes = parsed.notes;
         if (parsed.formData) formData = parsed.formData;
         if (parsed.photoData) photoData = parsed.photoData;
-        if (parsed.voiceResults) voiceResults = parsed.voiceResults;
+        // 不再从 localStorage 恢复 voiceResults：每次刷新语音三列都是空白起点
     }
 }
 
@@ -2388,6 +2463,11 @@ function startVoiceNote() {
     document.getElementById('topBarSubtitle').textContent = '';
     document.getElementById('topBarNew').style.display = 'none';
     
+    // 同步语音页顶部：照片区和酒名输入
+    applyPhotoToUI();
+    const wineNameEl = document.getElementById('voiceWineName');
+    if (wineNameEl) wineNameEl.value = formData.wineName || '';
+    
     // 更新语音卡片显示
     ['Aroma', 'Palate', 'Overall'].forEach(field => {
         const result = voiceResults[field.toLowerCase()];
@@ -2438,8 +2518,7 @@ function resetFormData() {
         ageing: 'drinkNow', ageingReason: '', overallNotes: ''
     };
     photoData = null;
-    document.getElementById('photoUploadArea').classList.remove('has-photo');
-    document.getElementById('photoUploadArea').innerHTML = '<div class="photo-placeholder-icon">🖼️</div><div class="photo-placeholder-text">点击上传照片</div>';
+    applyPhotoToUI();
     updateColorOptions();
 }
 
@@ -2694,6 +2773,32 @@ function updateOther(suffix, tier, cluster, value) {
 }
 
 // ==================== 照片 ====================
+// 同步刷新表单区和语音区两个照片 UI（共享全局 photoData 变量）
+function applyPhotoToUI() {
+    // 表单区
+    const area1 = document.getElementById('photoUploadArea');
+    if (area1) {
+        if (photoData) {
+            area1.classList.add('has-photo');
+            area1.innerHTML = `<img src="${photoData}" alt="wine photo">`;
+        } else {
+            area1.classList.remove('has-photo');
+            area1.innerHTML = '<div class="photo-placeholder-icon">🖼️</div><div class="photo-placeholder-text">点击上传照片</div>';
+        }
+    }
+    // 语音区
+    const area2 = document.getElementById('voicePhotoUploadArea');
+    if (area2) {
+        if (photoData) {
+            area2.classList.add('has-photo');
+            area2.innerHTML = `<img src="${photoData}" alt="wine photo">`;
+        } else {
+            area2.classList.remove('has-photo');
+            area2.innerHTML = '<div class="voice-photo-icon">📷</div><div class="voice-photo-text">照片</div>';
+        }
+    }
+}
+
 function handlePhotoUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2714,16 +2819,12 @@ function handlePhotoUpload(event) {
             canvas.getContext('2d').drawImage(img, 0, 0, w, h);
             try { photoData = canvas.toDataURL('image/jpeg', 0.8); }
             catch (err) { photoData = e.target.result; }
-            const area = document.getElementById('photoUploadArea');
-            area.classList.add('has-photo');
-            area.innerHTML = `<img src="${photoData}" alt="wine photo">`;
+            applyPhotoToUI();
             saveToStorage();
         };
         img.onerror = () => {
             photoData = e.target.result;
-            const area = document.getElementById('photoUploadArea');
-            area.classList.add('has-photo');
-            area.innerHTML = `<img src="${photoData}" alt="wine photo">`;
+            applyPhotoToUI();
             saveToStorage();
         };
         img.src = e.target.result;
@@ -3401,6 +3502,12 @@ async function generateNote() {
 }
 
 async function generateNoteFromVoice() {
+    // 把语音页顶部的酒名输入带入 formData，笔记列表能显示可辨识的名字
+    const wineNameEl = document.getElementById('voiceWineName');
+    if (wineNameEl) {
+        const wn = (wineNameEl.value || '').trim();
+        if (wn) formData.wineName = wn;
+    }
     const basicNote = buildVoiceNote();
     await doGenerate(basicNote, 'voiceResultSection', 'voiceResultContent');
 }
@@ -3459,7 +3566,7 @@ async function doGenerate(basicNote, sectionId, contentId) {
         try { saveToStorage(); } catch (saveErr) { console.warn('saveToStorage failed:', saveErr); }
         renderNotesList();
         
-        showToast('已生成');
+        showToast('✨ 已生成，已保存到「我的笔记」');
     } catch (e) {
         showToast('生成失败: ' + e.message);
     } finally {
