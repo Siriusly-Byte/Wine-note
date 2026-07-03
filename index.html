@@ -2892,6 +2892,27 @@ const XFYUN_ERROR_HINTS = {
 let xfyunWs = null;
 let xfyunResultText = '';
 
+// 优雅结束讯飞会话：发送 end 帧让服务端立即释放并发路，避免撞 over max limit
+function endXfyunSession() {
+    if (!xfyunWs) return;
+    const ws = xfyunWs;
+    xfyunWs = null;
+    // 前端 UI 已视为结束，屏蔽旧连接后续任何回调
+    ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+    try {
+        if (ws.readyState === WebSocket.OPEN) {
+            // 讯飞 RTASR 规定：发送 {"end": true} 结束帧，服务端立即结算并释放会话
+            try { ws.send('{"end": true}'); } catch(_) {}
+            // 给服务端 800ms 处理完最后一帧再 close，避免 send 后立刻断线丢包
+            setTimeout(() => { try { ws.close(); } catch(_) {} }, 800);
+        } else {
+            try { ws.close(); } catch(_) {}
+        }
+    } catch(_) {
+        try { ws.close(); } catch(__){}
+    }
+}
+
 function startXfyunSpeech() {
     const cfg = settings.xfyun || {};
     // 严格清理：去掉零宽字符/BOM/全角空格/换行/任何空白，避免粘贴时混入不可见字符
@@ -2904,16 +2925,8 @@ function startXfyunSpeech() {
     }
     console.log('[xfyun] appId len=' + appId.length + ' apiKey len=' + apiKey.length);
     
-    // 启动前彻底关闭旧连接，避免占用并发路
-    if (xfyunWs) {
-        try {
-            xfyunWs.onopen = xfyunWs.onmessage = xfyunWs.onerror = xfyunWs.onclose = null;
-            if (xfyunWs.readyState === WebSocket.OPEN || xfyunWs.readyState === WebSocket.CONNECTING) {
-                xfyunWs.close();
-            }
-        } catch(_) {}
-        xfyunWs = null;
-    }
+    // 启动前优雅结束旧会话，通知服务端释放并发路（发 end 帧比 close 快得多）
+    endXfyunSession();
     
     xfyunResultText = voiceResults[currentVoiceField] || '';
     
@@ -3119,7 +3132,7 @@ function stopAudioCapture() {
 
 function cancelVoice() {
     if (recognition) recognition.stop();
-    if (xfyunWs) { try { xfyunWs.close(); } catch(e){} xfyunWs = null; }
+    endXfyunSession();
     if (aliyunWs) { try { aliyunWs.close(); } catch(e){} aliyunWs = null; }
     if (customWs) { try { customWs.close(); } catch(e){} customWs = null; }
     stopAudioCapture();
@@ -3128,7 +3141,7 @@ function cancelVoice() {
 
 function confirmVoice() {
     if (recognition) recognition.stop();
-    if (xfyunWs) { try { xfyunWs.close(); } catch(e){} xfyunWs = null; }
+    endXfyunSession();
     if (aliyunWs) { try { aliyunWs.close(); } catch(e){} aliyunWs = null; }
     if (customWs) { try { customWs.close(); } catch(e){} customWs = null; }
     stopAudioCapture();
