@@ -1157,18 +1157,26 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 16px;
+            padding: calc(var(--safe-top) + 12px) 16px 12px;
             border-bottom: 1px solid var(--border-light);
         }
         
         .note-detail-back {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             cursor: pointer;
+            border-radius: 50%;
+            -webkit-user-select: none;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        
+        .note-detail-back:active {
+            background: var(--bg-cream);
         }
         
         .note-detail-title {
@@ -1182,13 +1190,13 @@
         
         .note-detail-body {
             position: absolute;
-            top: 61px;
+            top: calc(63px + var(--safe-top));
             left: 0;
             right: 0;
             bottom: 0;
             overflow-y: auto;
             padding: 16px;
-            padding-bottom: 30px;
+            padding-bottom: calc(30px + var(--safe-bottom));
         }
         
         .note-detail-photo {
@@ -3290,8 +3298,19 @@ function copyNoteDetail() {
 
 function exportNoteDetail() {
     if (selectedNoteIndex === null) return;
-    notes[selectedNoteIndex].photoData = photoData;
-    exportImage();
+    const note = notes[selectedNoteIndex];
+    // 从详情容器读取当前显示的文字（支持双语：读活动 pane）
+    const container = document.getElementById('noteDetailText');
+    const activePane = container.querySelector('.result-lang-pane.active');
+    const text = activePane ? activePane.textContent : container.textContent;
+    if (!text || !text.trim()) {
+        showToast('这条笔记没有品酒词内容');
+        return;
+    }
+    exportImage({
+        noteContent: text,
+        photoData: note.photoData || null,
+    });
 }
 
 function deleteNote(index) {
@@ -4639,14 +4658,19 @@ function copyResult() {
 }
 
 // ==================== 导出图片 ====================
-async function exportImage() {
-    let noteContent = '';
-    for (const secId of ['resultSection', 'voiceResultSection']) {
-        const sec = document.getElementById(secId);
-        if (sec && sec.classList.contains('visible')) {
-            const pane = sec.querySelector('.result-lang-pane.active');
-            if (pane) noteContent = pane.textContent;
-            break;
+async function exportImage(options) {
+    options = options || {};
+    let noteContent = options.noteContent || '';
+    // 优先用外部传入的 photoData（如详情页），否则用全局 photoData（生成页刚拍照的）
+    const usePhotoData = (options.photoData !== undefined) ? options.photoData : photoData;
+    if (!noteContent) {
+        for (const secId of ['resultSection', 'voiceResultSection']) {
+            const sec = document.getElementById(secId);
+            if (sec && sec.classList.contains('visible')) {
+                const pane = sec.querySelector('.result-lang-pane.active');
+                if (pane) noteContent = pane.textContent;
+                break;
+            }
         }
     }
     if (!noteContent) {
@@ -4665,9 +4689,9 @@ async function exportImage() {
     const textH = lines.length * 28 + pad * 2 + 60;
     
     let photoH = textH, photoImg = null;
-    if (photoData) {
+    if (usePhotoData) {
         photoImg = new Image();
-        photoImg.src = photoData;
+        photoImg.src = usePhotoData;
         await new Promise(r => { photoImg.onload = r; if (photoImg.complete) r(); });
         photoH = Math.max(textH, photoW * (photoImg.height / photoImg.width) + pad * 2);
     }
