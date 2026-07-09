@@ -4106,6 +4106,14 @@ function saveSettings() {
     
     localStorage.setItem('wineSettings', JSON.stringify(settings));
     updateSyncStatus();
+    // Gist 配置变化且 token+gistId 都非空时, 自动触发一次非静默同步(把 pull/push 结果直接反馈给用户)
+    const gistChanged = (prevGist.token || '') !== settings.gistSync.token
+                     || (prevGist.gistId || '') !== settings.gistSync.gistId;
+    if (gistChanged && settings.gistSync.token && settings.gistSync.gistId) {
+        showToast('设置已保存, 正在同步...');
+        setTimeout(() => syncNow(false), 100);
+        return;
+    }
     showToast('设置已保存');
 }
 
