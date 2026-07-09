@@ -1185,17 +1185,21 @@
         
         .note-detail-photo {
             width: 100%;
-            aspect-ratio: 4/3;
+            max-height: 60vh;
             border-radius: 12px;
             overflow: hidden;
             margin-bottom: 16px;
             background: var(--bg-cream);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .note-detail-photo img {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
+            height: auto;
+            max-height: 60vh;
+            object-fit: contain;
         }
         
         .note-detail-text {
@@ -1645,6 +1649,61 @@
             color: white;
         }
         
+        .result-preview-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #fff8e6;
+            border: 1px dashed #d4a017;
+            border-radius: 10px;
+            font-size: 13px;
+        }
+        
+        .result-preview-hint {
+            color: #8B6914;
+            flex: 1;
+        }
+        
+        .result-preview-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .result-btn-preview {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .result-btn-preview.discard {
+            background: #f0f0f0;
+            color: #666;
+        }
+        
+        .result-btn-preview.save {
+            background: linear-gradient(135deg, var(--wine-dark), var(--wine-red));
+            color: white;
+        }
+        
+        .result-lang-pane[contenteditable="true"] {
+            outline: none;
+            padding: 8px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.02);
+            min-height: 60px;
+        }
+        
+        .result-lang-pane[contenteditable="true"]:focus {
+            background: rgba(139, 58, 58, 0.04);
+            box-shadow: 0 0 0 2px rgba(139, 58, 58, 0.15);
+        }
+        
         .form-buttons {
             display: flex;
             gap: 10px;
@@ -1718,7 +1777,7 @@
                     <div class="form-group">
                         <label class="form-label">葡萄酒类型</label>
                         <div class="option-chips" id="wineTypeGroup">
-                            <span class="chip selected" onclick="selectChip('wineTypeGroup', 'white')">白葡萄酒</span>
+                            <span class="chip" onclick="selectChip('wineTypeGroup', 'white')">白葡萄酒</span>
                             <span class="chip" onclick="selectChip('wineTypeGroup', 'red')">红葡萄酒</span>
                             <span class="chip" onclick="selectChip('wineTypeGroup', 'rose')">桃红葡萄酒</span>
                             <span class="chip" onclick="selectChip('wineTypeGroup', 'sparkling')">起泡酒</span>
@@ -1736,7 +1795,7 @@
                     <div class="form-group">
                         <label class="form-label">澄清度 (Clarity)</label>
                         <div class="option-chips" id="clarityGroup">
-                            <span class="chip selected" onclick="selectChip('clarityGroup', 'clear')">澄清</span>
+                            <span class="chip" onclick="selectChip('clarityGroup', 'clear')">澄清</span>
                             <span class="chip" onclick="selectChip('clarityGroup', 'slightlyhazy')">轻微浑浊</span>
                             <span class="chip" onclick="selectChip('clarityGroup', 'hazy')">浑浊</span>
                         </div>
@@ -1745,15 +1804,15 @@
                         <label class="form-label">颜色深浅 (Intensity)</label>
                         <div class="option-chips" id="intensityGroup">
                             <span class="chip" onclick="selectChip('intensityGroup', 'pale')">淡</span>
-                            <span class="chip selected" onclick="selectChip('intensityGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('intensityGroup', 'medium')">中</span>
                             <span class="chip" onclick="selectChip('intensityGroup', 'deep')">深</span>
                         </div>
                     </div>
                     <div class="form-group" id="colorGroupContainer">
                         <label class="form-label">颜色 (Color)</label>
                         <div class="option-chips" id="colorGroup">
-                            <span class="chip selected" onclick="selectChip('colorGroup', 'lemon-green')">青柠檬色</span>
-                            <span class="chip selected" onclick="selectChip('colorGroup', 'lemon')">柠檬色</span>
+                            <span class="chip" onclick="selectChip('colorGroup', 'lemon-green')">青柠檬色</span>
+                            <span class="chip" onclick="selectChip('colorGroup', 'lemon')">柠檬色</span>
                             <span class="chip" onclick="selectChip('colorGroup', 'gold')">金黄色</span>
                             <span class="chip" onclick="selectChip('colorGroup', 'amber')">琥珀色</span>
                             <span class="chip" onclick="selectChip('colorGroup', 'brown')">棕色</span>
@@ -1770,7 +1829,7 @@
                     <div class="form-group">
                         <label class="form-label">状态 (Condition)</label>
                         <div class="option-chips" id="conditionGroup">
-                            <span class="chip selected" onclick="selectChip('conditionGroup', 'clean')">干净</span>
+                            <span class="chip" onclick="selectChip('conditionGroup', 'clean')">干净</span>
                             <span class="chip" onclick="selectChip('conditionGroup', 'faulty')">有缺陷</span>
                         </div>
                         <div class="faulty-toggle" id="noseFaultyToggle" style="display:none">
@@ -1793,7 +1852,7 @@
                     <div class="form-group">
                         <label class="form-label">甜度 (Sweetness)</label>
                         <div class="option-chips" id="sweetnessGroup">
-                            <span class="chip selected" onclick="selectChip('sweetnessGroup', 'dry')">干型</span>
+                            <span class="chip" onclick="selectChip('sweetnessGroup', 'dry')">干型</span>
                             <span class="chip" onclick="selectChip('sweetnessGroup', 'offDry')">近乎干型</span>
                             <span class="chip" onclick="selectChip('sweetnessGroup', 'mediumDry')">半干</span>
                             <span class="chip" onclick="selectChip('sweetnessGroup', 'medium')">半甜</span>
@@ -1808,16 +1867,16 @@
                             <span class="chip" onclick="selectChip('acidityGroup', 'medium-')">中-</span>
                             <span class="chip" onclick="selectChip('acidityGroup', 'medium')">中</span>
                             <span class="chip" onclick="selectChip('acidityGroup', 'medium+')">中+</span>
-                            <span class="chip selected" onclick="selectChip('acidityGroup', 'high')">高</span>
+                            <span class="chip" onclick="selectChip('acidityGroup', 'high')">高</span>
                         </div>
                     </div>
                     <div class="form-group" id="tanninGroupContainer" style="display:none">
                         <label class="form-label">单宁 (Tannin)</label>
                         <div class="option-chips" id="tanninLevelGroup">
                             <span class="chip" onclick="selectChip('tanninLevelGroup', 'low')">低</span>
-                            <span class="chip selected" onclick="selectChip('tanninLevelGroup', 'medium-')">中-</span>
-                            <span class="chip selected" onclick="selectChip('tanninLevelGroup', 'medium')">中</span>
-                            <span class="chip selected" onclick="selectChip('tanninLevelGroup', 'medium+')">中+</span>
+                            <span class="chip" onclick="selectChip('tanninLevelGroup', 'medium-')">中-</span>
+                            <span class="chip" onclick="selectChip('tanninLevelGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('tanninLevelGroup', 'medium+')">中+</span>
                             <span class="chip" onclick="selectChip('tanninLevelGroup', 'high')">高</span>
                         </div>
                         <div class="multi-chips" id="tanninNatureGroup" style="margin-top:8px">
@@ -1833,7 +1892,7 @@
                         <label class="form-label">酒精度 (Alcohol)</label>
                         <div class="option-chips" id="alcoholGroup">
                             <span class="chip" onclick="selectChip('alcoholGroup', 'low')">低</span>
-                            <span class="chip selected" onclick="selectChip('alcoholGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('alcoholGroup', 'medium')">中</span>
                             <span class="chip" onclick="selectChip('alcoholGroup', 'high')">高</span>
                         </div>
                     </div>
@@ -1841,9 +1900,9 @@
                         <label class="form-label">酒体 (Body)</label>
                         <div class="option-chips" id="bodyGroup">
                             <span class="chip" onclick="selectChip('bodyGroup', 'light')">轻盈</span>
-                            <span class="chip selected" onclick="selectChip('bodyGroup', 'medium-')">中等-</span>
-                            <span class="chip selected" onclick="selectChip('bodyGroup', 'medium')">中等</span>
-                            <span class="chip selected" onclick="selectChip('bodyGroup', 'medium+')">中等+</span>
+                            <span class="chip" onclick="selectChip('bodyGroup', 'medium-')">中等-</span>
+                            <span class="chip" onclick="selectChip('bodyGroup', 'medium')">中等</span>
+                            <span class="chip" onclick="selectChip('bodyGroup', 'medium+')">中等+</span>
                             <span class="chip" onclick="selectChip('bodyGroup', 'full')">饱满</span>
                         </div>
                     </div>
@@ -1855,9 +1914,9 @@
                         <label class="form-label">余味 (Finish)</label>
                         <div class="option-chips" id="finishGroup">
                             <span class="chip" onclick="selectChip('finishGroup', 'short')">短</span>
-                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium-')">中-</span>
-                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium')">中</span>
-                            <span class="chip selected" onclick="selectChip('finishGroup', 'medium+')">中+</span>
+                            <span class="chip" onclick="selectChip('finishGroup', 'medium-')">中-</span>
+                            <span class="chip" onclick="selectChip('finishGroup', 'medium')">中</span>
+                            <span class="chip" onclick="selectChip('finishGroup', 'medium+')">中+</span>
                             <span class="chip" onclick="selectChip('finishGroup', 'long')">长</span>
                         </div>
                     </div>
@@ -1874,7 +1933,7 @@
                         <div class="option-chips" id="qualityGroup">
                             <span class="chip" onclick="selectChip('qualityGroup', 'faulty')">缺陷 (Faulty)</span>
                             <span class="chip" onclick="selectChip('qualityGroup', 'poor')">差</span>
-                            <span class="chip selected" onclick="selectChip('qualityGroup', 'acceptable')">可接受</span>
+                            <span class="chip" onclick="selectChip('qualityGroup', 'acceptable')">可接受</span>
                             <span class="chip" onclick="selectChip('qualityGroup', 'good')">良好</span>
                             <span class="chip" onclick="selectChip('qualityGroup', 'veryGood')">优秀</span>
                             <span class="chip" onclick="selectChip('qualityGroup', 'outstanding')">杰出</span>
@@ -1883,7 +1942,7 @@
                     <div class="form-group">
                         <label class="form-label">适饮状态 (Ageing)</label>
                         <div class="option-chips" id="ageingGroup">
-                            <span class="chip selected" onclick="selectChip('ageingGroup', 'drinkNow')">现在即可</span>
+                            <span class="chip" onclick="selectChip('ageingGroup', 'drinkNow')">现在即可</span>
                             <span class="chip" onclick="selectChip('ageingGroup', 'comingPeak')">即将适饮</span>
                             <span class="chip" onclick="selectChip('ageingGroup', 'atPeak')">正值巅峰</span>
                             <span class="chip" onclick="selectChip('ageingGroup', 'pastPeak')">过了巅峰</span>
@@ -1928,6 +1987,13 @@
                         </div>
                         <div class="result-lang-pane active" data-lang="zh"></div>
                         <div class="result-lang-pane" data-lang="en"></div>
+                    </div>
+                    <div class="result-preview-bar" id="resultSectionPreviewBar" style="display:none;">
+                        <span class="result-preview-hint">✏️ 可直接点击文字编辑</span>
+                        <div class="result-preview-actions">
+                            <button class="result-btn-preview discard" onclick="discardGeneratedNote()">丢弃</button>
+                            <button class="result-btn-preview save" onclick="saveGeneratedNote()">保存到笔记</button>
+                        </div>
                     </div>
                     <div class="result-buttons">
                         <button class="result-btn-main copy" onclick="copyResult()">📋 复制</button>
@@ -2006,6 +2072,13 @@
                             </div>
                             <div class="result-lang-pane active" data-lang="zh"></div>
                             <div class="result-lang-pane" data-lang="en"></div>
+                        </div>
+                        <div class="result-preview-bar" id="voiceResultSectionPreviewBar" style="display:none;">
+                            <span class="result-preview-hint">✏️ 可直接点击文字编辑</span>
+                            <div class="result-preview-actions">
+                                <button class="result-btn-preview discard" onclick="discardGeneratedNote()">丢弃</button>
+                                <button class="result-btn-preview save" onclick="saveGeneratedNote()">保存到笔记</button>
+                            </div>
                         </div>
                         <div class="result-buttons">
                             <button class="result-btn-main copy" onclick="copyResult()">📋 复制</button>
@@ -2282,22 +2355,22 @@
     <script>
 // ==================== 状态 ====================
 let formData = {
-    wineType: 'white',
+    wineType: '',
     wineName: '',
-    clarity: 'clear',
-    intensity: 'medium',
-    color: 'lemon',
+    clarity: '',
+    intensity: '',
+    color: '',
     appearanceObservations: [],
     appearanceFaulty: false,
     appearanceOther: '',
-    condition: 'clean',
+    condition: '',
     noseFaulty: false,
     noseSelected: { primary: {}, secondary: {}, tertiary: {} },
     noseOther: { primary: {}, secondary: {}, tertiary: {} },
     palateSelected: { primary: {}, secondary: {}, tertiary: {} },
     palateOther: { primary: {}, secondary: {}, tertiary: {} },
-    sweetness: 'dry',
-    acidity: 'high',
+    sweetness: '',
+    acidity: '',
     tanninLevel: 'medium',
     tanninNature: [],
     alcohol: 'medium',
@@ -2755,23 +2828,44 @@ function switchPage(pageId) {
 
 function resetFormData() {
     formData = {
-        wineType: 'white', wineName: '', clarity: 'clear', intensity: 'medium', color: 'lemon',
+        wineType: '', wineName: '', clarity: '', intensity: '', color: '',
         appearanceObservations: [], appearanceFaulty: false, appearanceOther: '',
-        condition: 'clean', noseFaulty: false,
+        condition: '', noseFaulty: false,
         noseSelected: { primary: {}, secondary: {}, tertiary: {} },
         noseOther: { primary: {}, secondary: {}, tertiary: {} },
         palateSelected: { primary: {}, secondary: {}, tertiary: {} },
         palateOther: { primary: {}, secondary: {}, tertiary: {} },
-        sweetness: 'dry', acidity: 'high', tanninLevel: 'medium', tanninNature: [],
-        alcohol: 'medium', body: 'medium', flavorIntensity: '',
+        sweetness: '', acidity: '', tanninLevel: '', tanninNature: [],
+        alcohol: '', body: '', flavorIntensity: '',
         palateOtherTexture: [], palatePetillance: false,
-        finish: 'medium', quality: 'acceptable', qualityReason: '',
-        ageing: 'drinkNow', ageingReason: '', overallNotes: ''
+        finish: '', quality: '', qualityReason: '',
+        ageing: '', ageingReason: '', overallNotes: ''
     };
     photoData = null;
     voiceResults = { aroma: '', palate: '', overall: '' };
     applyPhotoToUI();
     updateColorOptions();
+    // 同步清空表单页所有 chip 组和文本输入的 UI 状态
+    document.querySelectorAll('.chip.selected').forEach(c => c.classList.remove('selected'));
+    const wineNameInput = document.getElementById('wineName');
+    if (wineNameInput) wineNameInput.value = '';
+    const voiceWineNameInput = document.getElementById('voiceWineName');
+    if (voiceWineNameInput) voiceWineNameInput.value = '';
+    const appearanceOtherEl = document.getElementById('appearanceOther');
+    if (appearanceOtherEl) appearanceOtherEl.value = '';
+    const flavorIntensityEl = document.getElementById('flavorIntensity');
+    if (flavorIntensityEl) flavorIntensityEl.value = '';
+    const qualityReasonEl = document.getElementById('qualityReason');
+    if (qualityReasonEl) qualityReasonEl.value = '';
+    const ageingReasonEl = document.getElementById('ageingReason');
+    if (ageingReasonEl) ageingReasonEl.value = '';
+    const overallNotesEl = document.getElementById('overallNotes');
+    if (overallNotesEl) overallNotesEl.value = '';
+    // 香气/风味区重渲染（会因 wineType 空而清空）
+    if (typeof renderAromaClusters === 'function') {
+        renderAromaClusters('Nose');
+        renderAromaClusters('Palate');
+    }
 }
 
 // ==================== 表单交互 ====================
@@ -2819,6 +2913,13 @@ function updateNoseFaulty() {
 function updateColorOptions() {
     const container = document.getElementById('colorGroupContainer');
     const group = document.getElementById('colorGroup');
+    const tanninContainerEarly = document.getElementById('tanninGroupContainer');
+    // 未选葡萄酒类型时，隐藏色区和单宁区（全空白态）
+    if (!formData.wineType) {
+        container.style.display = 'none';
+        if (tanninContainerEarly) tanninContainerEarly.style.display = 'none';
+        return;
+    }
     container.style.display = 'block';
     
     if (formData.wineType === 'red') {
@@ -2829,27 +2930,21 @@ function updateColorOptions() {
             <span class="chip" onclick="selectChip('colorGroup', 'tawny')">茶色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'brown')">棕色</span>
         `;
-        if (!['purple', 'ruby', 'garnet', 'tawny', 'brown'].includes(formData.color)) {
-            formData.color = 'ruby';
-        }
+        // 不再强制回填默认色，保留用户未选状态
     } else if (formData.wineType === 'rose') {
         group.innerHTML = `
             <span class="chip" onclick="selectChip('colorGroup', 'pink')">粉色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'pink-orange')">粉橘色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'orange')">橘色</span>
         `;
-        if (!['pink', 'pink-orange', 'orange'].includes(formData.color)) {
-            formData.color = 'pink';
-        }
+        // 不再强制回填默认色，保留用户未选状态
     } else if (formData.wineType === 'sparkling') {
         group.innerHTML = `
             <span class="chip" onclick="selectChip('colorGroup', 'white')">白</span>
             <span class="chip" onclick="selectChip('colorGroup', 'rose')">桃红</span>
             <span class="chip" onclick="selectChip('colorGroup', 'red')">红</span>
         `;
-        if (!['white', 'rose', 'red'].includes(formData.color)) {
-            formData.color = 'white';
-        }
+        // 不再强制回填默认色，保留用户未选状态
     } else {
         group.innerHTML = `
             <span class="chip" onclick="selectChip('colorGroup', 'lemon-green')">青柠檬色</span>
@@ -2858,9 +2953,7 @@ function updateColorOptions() {
             <span class="chip" onclick="selectChip('colorGroup', 'amber')">琥珀色</span>
             <span class="chip" onclick="selectChip('colorGroup', 'brown')">棕色</span>
         `;
-        if (!['lemon-green', 'lemon', 'gold', 'amber', 'brown'].includes(formData.color)) {
-            formData.color = 'lemon';
-        }
+        // 不再强制回填默认色，保留用户未选状态
     }
     
     // 更新选中（精确匹配 colorGroup 的 value，避免 lemon 命中 lemon-green）
@@ -2883,6 +2976,11 @@ function sanitizeId(str) {
 function renderAromaClusters(suffix) {
     const wineType = formData.wineType;
     const container = document.getElementById(suffix === 'Nose' ? 'noseAromaSection' : 'palateAromaSection');
+    // 未选葡萄酒类型时，香气/风味区留空（全空白态）
+    if (!wineType) {
+        container.innerHTML = '<div style="padding:16px;color:var(--text-gray);font-size:13px;">请先选择葡萄酒类型</div>';
+        return;
+    }
     
     let html = '';
     
@@ -3105,7 +3203,7 @@ function renderNotesList() {
                     ${note.photoData ? `<img src="${note.photoData}" alt="photo">` : ''}
                 </div>
                 <div class="note-item-info">
-                    <div class="note-item-name">${note.wineName || '未命名'}</div>
+                    <div class="note-item-name">${(note.wineName && note.wineName !== '未命名') ? note.wineName : note.date}</div>
                     <div class="note-item-date">${note.date}</div>
                 </div>
             </div>
@@ -3146,7 +3244,7 @@ function openNoteDetail(index) {
     selectedNoteIndex = index;
     const note = notes[index];
     
-    document.getElementById('noteDetailTitle').textContent = note.wineName || '未命名';
+    document.getElementById('noteDetailTitle').textContent = (note.wineName && note.wineName !== '未命名') ? note.wineName : note.date;
     
     const photoEl = document.getElementById('noteDetailPhoto');
     if (note.photoData) {
@@ -3985,7 +4083,16 @@ function saveSettings() {
 }
 
 // ==================== 生成品酒词 ====================
+// 待确认保存的笔记草稿（生成后 → 用户预览/编辑 → 保存/丢弃）
+let pendingNote = null;
+
 async function generateNote() {
+    // 从表单页顶部的酒款名 input 同步到 formData（此前遗漏，导致笔记标题一直是"未命名"）
+    const wineNameEl = document.getElementById('wineName');
+    if (wineNameEl) {
+        const wn = (wineNameEl.value || '').trim();
+        if (wn) formData.wineName = wn;
+    }
     const basicNote = buildBasicNote();
     await doGenerate(basicNote, 'resultSection', 'resultContent');
 }
@@ -4039,30 +4146,90 @@ async function doGenerate(basicNote, sectionId, contentId) {
             noteEn = generateLocalNote(basicNote, 'en');
         }
         
-        if (zhPane) zhPane.textContent = noteZh;
-        if (enPane) enPane.textContent = noteEn;
+        if (zhPane) {
+            zhPane.textContent = noteZh;
+            zhPane.setAttribute('contenteditable', 'true');
+        }
+        if (enPane) {
+            enPane.textContent = noteEn;
+            enPane.setAttribute('contenteditable', 'true');
+        }
         
-        const newNote = ensureNoteMeta({
-            wineName: formData.wineName || '未命名',
+        // 暂存为待保存草稿；不立即写入 notes，等用户点"保存"再落库
+        pendingNote = {
+            wineName: (formData.wineName || '').trim(),
             date: new Date().toLocaleDateString('zh-CN'),
             formData: JSON.parse(JSON.stringify(formData)),
             photoData,
             voiceResults: { ...voiceResults },
-            resultText: noteZh,
-            resultTextZh: noteZh,
-            resultTextEn: noteEn
-        });
-        notes.unshift(newNote);
-        try { saveToStorage(); } catch (saveErr) { console.warn('saveToStorage failed:', saveErr); }
-        renderNotesList();
-        scheduleAutoSync();
+            sectionId,
+            contentId
+        };
+        // 显示"保存/丢弃"预览控制条
+        const previewBar = document.getElementById(sectionId + 'PreviewBar');
+        if (previewBar) previewBar.style.display = 'flex';
         
-        showToast('✨ 已生成，已保存到「我的笔记」');
+        showToast('✨ 已生成，可编辑后点保存');
     } catch (e) {
         showToast('生成失败: ' + e.message);
     } finally {
         loading.classList.remove('active');
     }
+}
+
+function saveGeneratedNote() {
+    if (!pendingNote) return;
+    const container = document.getElementById(pendingNote.contentId);
+    if (!container) return;
+    const zhPane = container.querySelector('.result-lang-pane[data-lang="zh"]');
+    const enPane = container.querySelector('.result-lang-pane[data-lang="en"]');
+    // 读取用户可能编辑过的最新文本
+    const noteZh = zhPane ? zhPane.textContent.trim() : '';
+    const noteEn = enPane ? enPane.textContent.trim() : '';
+    if (!noteZh && !noteEn) {
+        showToast('内容为空，无法保存');
+        return;
+    }
+    const wineName = (pendingNote.wineName || '').trim();
+    const newNote = ensureNoteMeta({
+        wineName: wineName,
+        date: pendingNote.date,
+        formData: pendingNote.formData,
+        photoData: pendingNote.photoData,
+        voiceResults: pendingNote.voiceResults,
+        resultText: noteZh,
+        resultTextZh: noteZh,
+        resultTextEn: noteEn
+    });
+    notes.unshift(newNote);
+    try { saveToStorage(); } catch (saveErr) { console.warn('saveToStorage failed:', saveErr); }
+    renderNotesList();
+    scheduleAutoSync();
+    // 收尾：隐藏预览条、取消可编辑、清空 pendingNote
+    const previewBar = document.getElementById(pendingNote.sectionId + 'PreviewBar');
+    if (previewBar) previewBar.style.display = 'none';
+    if (zhPane) zhPane.removeAttribute('contenteditable');
+    if (enPane) enPane.removeAttribute('contenteditable');
+    pendingNote = null;
+    showToast('✅ 已保存到「我的笔记」');
+}
+
+function discardGeneratedNote() {
+    if (!pendingNote) return;
+    if (!confirm('丢弃这次生成的品酒词？')) return;
+    const container = document.getElementById(pendingNote.contentId);
+    if (container) {
+        const zhPane = container.querySelector('.result-lang-pane[data-lang="zh"]');
+        const enPane = container.querySelector('.result-lang-pane[data-lang="en"]');
+        if (zhPane) { zhPane.textContent = ''; zhPane.removeAttribute('contenteditable'); }
+        if (enPane) { enPane.textContent = ''; enPane.removeAttribute('contenteditable'); }
+    }
+    const previewBar = document.getElementById(pendingNote.sectionId + 'PreviewBar');
+    if (previewBar) previewBar.style.display = 'none';
+    const section = document.getElementById(pendingNote.sectionId);
+    if (section) section.classList.remove('visible');
+    pendingNote = null;
+    showToast('已丢弃');
 }
 
 // 将香气/风味数据格式化为文本
